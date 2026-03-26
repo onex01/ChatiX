@@ -1,0 +1,55 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
+class NotificationService {
+  static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+
+  static Future<void> initialize() async {
+    // Запрос разрешений
+    NotificationSettings settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('Push notifications разрешены');
+    }
+
+    // Обработка сообщений, когда приложение на переднем плане
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _showForegroundNotification(message);
+    });
+
+    // Обработка сообщений, когда приложение в фоне и пользователь нажал на уведомление
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('Уведомление открыто: ${message.data}');
+      // Здесь можно добавить навигацию в конкретный чат
+    });
+
+    // Получаем токен устройства
+    String? token = await _messaging.getToken();
+    print('FCM Token: $token');
+  }
+
+  static void _showForegroundNotification(RemoteMessage message) {
+    final notification = message.notification;
+
+    Fluttertoast.showToast(
+      msg: notification?.body ?? 'Новое сообщение',
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.TOP,
+      backgroundColor: Colors.blue,
+      textColor: Colors.white,
+    );
+
+    // Можно также показать системное уведомление, но для начала хватит toast
+  }
+
+  // Получить токен (можно вызвать после входа)
+  static Future<String?> getToken() async {
+    return await _messaging.getToken();
+  }
+}

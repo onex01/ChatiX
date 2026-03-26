@@ -10,16 +10,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen> {
   final currentUser = FirebaseAuth.instance.currentUser!;
-
-  @override
-  bool get wantKeepAlive => true; // сохраняет состояние при переключении
+  final Map<String, String> userNicknames = {}; // кэш никнеймов
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // важно для AutomaticKeepAliveClientMixin
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('ChatiX'),
@@ -41,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             .orderBy('lastMessageTime', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && userNicknames.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -60,6 +56,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
           final chats = snapshot.data!.docs;
 
+          // Загружаем никнеймы один раз
+          _loadNicknamesIfNeeded(chats);
+
           return ListView.builder(
             itemCount: chats.length,
             itemBuilder: (context, index) {
@@ -68,11 +67,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               final otherUserId = participants.firstWhere((id) => id != currentUser.uid, orElse: () => currentUser.uid);
               final isSelfChat = data['isSelfChat'] == true;
 
+              final displayName = isSelfChat ? 'Заметки' : (userNicknames[otherUserId] ?? otherUserId);
+
               return ListTile(
                 leading: CircleAvatar(
                   child: isSelfChat ? const Icon(Icons.note_alt) : const Icon(Icons.person),
                 ),
-                title: Text(isSelfChat ? 'Заметки' : otherUserId),
+                title: Text(displayName),
                 subtitle: Text(data['lastMessage'] ?? 'Нет сообщений'),
                 trailing: data['lastMessageTime'] != null
                     ? Text(
@@ -106,8 +107,39 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
+  Future<void> _loadNicknamesIfNeeded(List<QueryDocumentSnapshot> chats) async {
+    final Set<String> uidsToLoad = {};
+
+    for (var doc in chats) {
+      final data = doc.data() as Map<String, dynamic>;
+      final participants = data['participants'] as List<dynamic>;
+      for (var uid in participants) {
+        final uidStr = uid.toString();
+        if (uidStr != currentUser.uid && !userNicknames.containsKey(uidStr)) {
+          uidsToLoad.add(uidStr);
+        }
+      }
+    }
+
+    if (uidsToLoad.isEmpty) return;
+
+    try {
+      final usersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: uidsToLoad.toList())
+          .get();
+
+      for (var doc in usersSnapshot.docs) {
+        userNicknames[doc.id] = doc['nickname'] ?? doc.id;
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      print("Ошибка загрузки никнеймов: $e");
+    }
+  }
+
   void _showSearchDialog(BuildContext context) {
-    // твой текущий код поиска
     String query = '';
     showDialog(
       context: context,
