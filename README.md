@@ -1,6 +1,6 @@
-# chatix
+# ChatiX
 
-A new Flutter project.
+A messenger running on Google Firebase
 
 ## Getting Started
 
