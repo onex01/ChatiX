@@ -1,7 +1,11 @@
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
+import 'profile_screen.dart';
+import '../widgets/chat_list.dart';   // ← новый импорт
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,93 +16,120 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final currentUser = FirebaseAuth.instance.currentUser!;
-  final Map<String, String> userNicknames = {}; // кэш никнеймов
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ChatiX'),
+        title: const Text(
+          'Chats',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.add_circle, color: Colors.blue, size: 32),
             onPressed: () => _showSearchDialog(context),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+          const SizedBox(width: 8),
+        ],
+      ),
+
+      body: Stack(
+        children: [
+          // Основное содержимое
+          Column(
+            children: [
+              // Поисковая строка
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: TextField(
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value.trim().toLowerCase());
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search',
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.grey[850],
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Список чатов
+              Expanded(
+                child: ChatList(
+                  currentUserId: currentUser.uid,
+                  searchQuery: _searchQuery,
+                ),
+              ),
+            ],
+          ),
+
+          // ==================== LIQUID GLASS DOCK BAR ====================
+          Positioned(
+            bottom: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Кнопка профиля (Liquid Glass стиль)
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('chats')
-            .where('participants', arrayContains: currentUser.uid)
-            .orderBy('lastMessageTime', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && userNicknames.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey),
-                  SizedBox(height: 20),
-                  Text('Пока нет чатов\nНайдите пользователя через поиск'),
-                ],
-              ),
-            );
-          }
-
-          final chats = snapshot.data!.docs;
-
-          // Загружаем никнеймы один раз
-          _loadNicknamesIfNeeded(chats);
-
-          return ListView.builder(
-            itemCount: chats.length,
-            itemBuilder: (context, index) {
-              final data = chats[index].data() as Map<String, dynamic>;
-              final participants = data['participants'] as List<dynamic>;
-              final otherUserId = participants.firstWhere((id) => id != currentUser.uid, orElse: () => currentUser.uid);
-              final isSelfChat = data['isSelfChat'] == true;
-
-              final displayName = isSelfChat ? 'Заметки' : (userNicknames[otherUserId] ?? otherUserId);
-
-              return ListTile(
-                leading: CircleAvatar(
-                  child: isSelfChat ? const Icon(Icons.note_alt) : const Icon(Icons.person),
-                ),
-                title: Text(displayName),
-                subtitle: Text(data['lastMessage'] ?? 'Нет сообщений'),
-                trailing: data['lastMessageTime'] != null
-                    ? Text(
-                        (data['lastMessageTime'] as Timestamp)
-                            .toDate()
-                            .toString()
-                            .substring(11, 16),
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatScreen(
-                        chatId: chats[index].id,
-                        otherUserId: otherUserId,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
+      // Оставляем старый FAB для заметок (можно убрать, если хочешь)
       floatingActionButton: FloatingActionButton(
         onPressed: _createSelfNotes,
         child: const Icon(Icons.note_alt),
@@ -106,39 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  Future<void> _loadNicknamesIfNeeded(List<QueryDocumentSnapshot> chats) async {
-    final Set<String> uidsToLoad = {};
-
-    for (var doc in chats) {
-      final data = doc.data() as Map<String, dynamic>;
-      final participants = data['participants'] as List<dynamic>;
-      for (var uid in participants) {
-        final uidStr = uid.toString();
-        if (uidStr != currentUser.uid && !userNicknames.containsKey(uidStr)) {
-          uidsToLoad.add(uidStr);
-        }
-      }
-    }
-
-    if (uidsToLoad.isEmpty) return;
-
-    try {
-      final usersSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: uidsToLoad.toList())
-          .get();
-
-      for (var doc in usersSnapshot.docs) {
-        userNicknames[doc.id] = doc['nickname'] ?? doc.id;
-      }
-
-      if (mounted) setState(() {});
-    } catch (e) {
-      print("Ошибка загрузки никнеймов: $e");
-    }
-  }
-
+ 
   void _showSearchDialog(BuildContext context) {
     String query = '';
     showDialog(

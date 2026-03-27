@@ -6,10 +6,19 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'firebase_options.dart';
+import 'services/notification_service.dart';   // ← Новый импорт
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Инициализация Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Инициализация push-уведомлений
+  await NotificationService.initialize();
+
   runApp(const MyApp());
 }
 

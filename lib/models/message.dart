@@ -7,12 +7,26 @@ class Message {
   final Timestamp timestamp;
   final bool isRead;
 
+  // Поля для ответа
+  final String? replyToMessageId;
+  final String? repliedMessageText;
+
+  // Новые поля для редактирования и удаления
+  final bool isEdited;
+  final Timestamp? editedAt;
+  final bool isDeleted;
+
   Message({
     required this.id,
     required this.senderId,
     required this.text,
     required this.timestamp,
     this.isRead = false,
+    this.replyToMessageId,
+    this.repliedMessageText,
+    this.isEdited = false,
+    this.editedAt,
+    this.isDeleted = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -21,6 +35,11 @@ class Message {
       'text': text,
       'timestamp': timestamp,
       'isRead': isRead,
+      'replyToMessageId': replyToMessageId,
+      'repliedMessageText': repliedMessageText,
+      'isEdited': isEdited,
+      'editedAt': editedAt,
+      'isDeleted': isDeleted,
     };
   }
 
@@ -28,9 +47,14 @@ class Message {
     return Message(
       id: id,
       senderId: map['senderId'],
-      text: map['text'],
+      text: map['text'] ?? '',
       timestamp: map['timestamp'] ?? Timestamp.now(),
       isRead: map['isRead'] ?? false,
+      replyToMessageId: map['replyToMessageId'],
+      repliedMessageText: map['repliedMessageText'],
+      isEdited: map['isEdited'] ?? false,
+      editedAt: map['editedAt'],
+      isDeleted: map['isDeleted'] ?? false,
     );
   }
 }

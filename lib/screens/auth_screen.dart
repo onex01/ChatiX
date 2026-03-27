@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -37,15 +36,13 @@ class _AuthScreenState extends State<AuthScreen> {
       
       _googleSignIn = googleSignIn;
       _googleSignIn?.onCurrentUserChanged.listen(_handleGoogleSignIn);
-      
-      // Проверяем существующую сессию при старте
+    
       _checkExistingSession();
     } catch (e) {
       print('Error initializing Google Sign In: $e');
     }
   }
-  
-  // Проверяем существующую сессию Google
+ 
   Future<void> _checkExistingSession() async {
     try {
       final account = await _googleSignIn?.signInSilently();
@@ -65,8 +62,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _handleGoogleSignIn(GoogleSignInAccount? account) async {
-    if (account == null) return;
-
+  if (account == null) return;
     if (!mounted) return;
     
     setState(() => _isLoading = true);
@@ -82,8 +78,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user!;
 
-      // Создаём профиль пользователя в Firestore
-      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
       final docSnapshot = await userDoc.get();
       
       if (!docSnapshot.exists) {
@@ -92,12 +87,12 @@ class _AuthScreenState extends State<AuthScreen> {
           'email': user.email,
           'nickname': user.email!.split('@')[0].toLowerCase(),
           'photoUrl': user.photoURL ?? '',
+          'bio': '',
           'createdAt': FieldValue.serverTimestamp(),
           'lastSeen': FieldValue.serverTimestamp(),
         });
       } else {
-        // Обновляем последнее посещение
-        await userDoc.update({
+      await userDoc.update({
           'lastSeen': FieldValue.serverTimestamp(),
           'photoUrl': user.photoURL ?? docSnapshot.data()?['photoUrl'],
         });
@@ -158,8 +153,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (isLogin) {
-        // Вход существующего пользователя
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
@@ -171,21 +165,18 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         }
       } else {
-        // Регистрация нового пользователя
-        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        
-        // Отправляем письмо для подтверждения email
+      
         await userCredential.user!.sendEmailVerification();
-        
-        // Создаем профиль пользователя в Firestore
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+         await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
           'uid': userCredential.user!.uid,
           'email': userCredential.user!.email,
           'nickname': userCredential.user!.email!.split('@')[0].toLowerCase(),
           'photoUrl': '',
+          'bio': '',
           'createdAt': FieldValue.serverTimestamp(),
           'lastSeen': FieldValue.serverTimestamp(),
         });
@@ -196,11 +187,9 @@ class _AuthScreenState extends State<AuthScreen> {
             gravity: ToastGravity.BOTTOM,
             toastLength: Toast.LENGTH_LONG,
           );
-          
-          // Выходим из системы, чтобы пользователь подтвердил email
+        
           await FirebaseAuth.instance.signOut();
-          
-          // Переключаемся на форму входа
+        
           setState(() {
             isLogin = true;
             _emailController.clear();
@@ -284,69 +273,48 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(height: 24),
                 Text(
                   isLogin ? 'Добро пожаловать!' : 'Создать аккаунт',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   isLogin ? 'Войдите чтобы продолжить' : 'Зарегистрируйтесь чтобы начать общение',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[400],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                 ),
                 const SizedBox(height: 40),
 
-                // Email поле
-                TextFormField(
+               TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Введите email';
-                    }
-                    if (!EmailValidator.validate(value)) {
-                      return 'Неверный формат email';
-                    }
+                    if (value == null || value.isEmpty) return 'Введите email';
+                    if (!EmailValidator.validate(value)) return 'Неверный формат email';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // Password поле
-                TextFormField(
+              TextFormField(
                   controller: _passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Пароль',
                     prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Введите пароль';
-                    }
-                    if (value.length < 6) {
-                      return 'Пароль должен содержать минимум 6 символов';
-                    }
+                    if (value == null || value.isEmpty) return 'Введите пароль';
+                    if (value.length < 6) return 'Пароль должен содержать минимум 6 символов';
                     return null;
                   },
                 ),
                 const SizedBox(height: 32),
 
-                // Кнопка входа/регистрации
-                SizedBox(
+              SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
@@ -354,28 +322,15 @@ class _AuthScreenState extends State<AuthScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            isLogin ? 'Войти' : 'Зарегистрироваться',
-                            style: const TextStyle(fontSize: 16),
-                          ),
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(isLogin ? 'Войти' : 'Зарегистрироваться', style: const TextStyle(fontSize: 16)),
                   ),
                 ),
 
-                // Переключение между входом и регистрацией
-                TextButton(
+              TextButton(
                   onPressed: () {
                     setState(() {
                       isLogin = !isLogin;
@@ -383,13 +338,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     });
                   },
                   child: Text(
-                    isLogin
-                        ? 'Нет аккаунта? Зарегистрироваться'
-                        : 'Уже есть аккаунт? Войти',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.blue[300],
-                    ),
+                    isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти',
+                    style: TextStyle(fontSize: 14, color: Colors.blue[300]),
                   ),
                 ),
 
@@ -397,20 +347,17 @@ class _AuthScreenState extends State<AuthScreen> {
                 const Divider(),
                 const SizedBox(height: 20),
 
-                // Кнопка Google
-                SizedBox(
+              SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _signInWithGoogle,
-                    icon: const Icon(Icons.g_mobiledata, size: 28), // Используем стандартную иконку
+                    icon: const Icon(Icons.g_mobiledata, size: 28),
                     label: const Text('Продолжить с Google'),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: Colors.grey[700]!),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),

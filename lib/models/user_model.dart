@@ -3,20 +3,23 @@ class UserModel {
   final String email;
   final String nickname;
   final String? photoUrl;
+  final String? bio;          // Новое поле
 
   UserModel({
     required this.uid,
     required this.email,
     required this.nickname,
     this.photoUrl,
+    this.bio,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'email': email,
-      'nickname': nickname.toLowerCase().trim(),
+      'nickname': nickname.toLowerCase().trim(), 
       'photoUrl': photoUrl,
+      'bio': bio ?? '',
     };
   }
 
@@ -24,8 +27,9 @@ class UserModel {
     return UserModel(
       uid: map['uid'],
       email: map['email'],
-      nickname: map['nickname'],
+      nickname: map['nickname'] ?? '',
       photoUrl: map['photoUrl'],
+      bio: map['bio'],
     );
   }
 }
