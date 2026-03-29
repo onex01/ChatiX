@@ -1,11 +1,11 @@
-import 'package:ChatiX/services/message_service.dart';
-import 'package:ChatiX/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/message_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/message_list.dart';
 import 'user_profile_screen.dart';
 
@@ -51,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } catch (e) {
-      print("Ошибка загрузки профиля: $e");
+      debugPrint("Ошибка загрузки профиля: $e");
     }
     if (mounted) {
       NotificationService.saveTokenToFirestore(currentUser.uid);
@@ -72,19 +72,19 @@ class _ChatScreenState extends State<ChatScreen> {
           .collection('messages');
 
       final unreadSnapshot = await messagesRef
-          .where('senderId', isNotEqualTo: currentUser.uid)
-          .where('read', isEqualTo: false)
+          .where('senderId', isEqualTo: widget.otherUserId)
+          .where('isRead', isEqualTo: false)
           .get();
 
       if (unreadSnapshot.docs.isEmpty) return;
 
       final batch = FirebaseFirestore.instance.batch();
       for (var doc in unreadSnapshot.docs) {
-        batch.update(doc.reference, {'read': true});
+        batch.update(doc.reference, {'isRead': true});
       }
       await batch.commit();
     } catch (e) {
-      print("Ошибка при пометке сообщений как прочитанных: $e");
+      debugPrint("Ошибка при пометке сообщений как прочитанных: $e");
     }
   }
 
@@ -160,7 +160,68 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  // ==================== ОТПРАВКА ТЕКСТА ====================
+  void _showAttachmentMenu() {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isLight ? Colors.white : const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isLight ? Colors.grey.shade300 : Colors.grey.shade600,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue.withOpacity(0.1),
+                child: const Icon(Icons.photo_library, color: Colors.blue),
+              ),
+              title: const Text('Фото из галереи'),
+              onTap: () {
+                Navigator.pop(context);
+                _sendImage();
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.green.withOpacity(0.1),
+                child: const Icon(Icons.insert_drive_file, color: Colors.green),
+              ),
+              title: const Text('Файл'),
+              onTap: () {
+                Navigator.pop(context);
+                _sendFile();
+              },
+            ),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.purple.withOpacity(0.1),
+                child: const Icon(Icons.camera_alt, color: Colors.purple),
+              ),
+              title: const Text('Снять фото'),
+              onTap: () {
+                Navigator.pop(context);
+                _takePhoto();
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -185,9 +246,46 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  // ==================== ОТПРАВКА ФОТОГРАФИИ ====================
   Future<void> _sendImage() async {
     await MessageService.pickAndSendImage(
+      chatId: widget.chatId,
+      replyToMessageId: _replyingToId,
+      repliedMessageText: _replyingToText,
+    );
+
+    setState(() {
+      _replyingToId = null;
+      _replyingToText = null;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  Future<void> _sendFile() async {
+    await MessageService.pickAndSendFile(
+      chatId: widget.chatId,
+      replyToMessageId: _replyingToId,
+      repliedMessageText: _replyingToText,
+    );
+
+    setState(() {
+      _replyingToId = null;
+      _replyingToText = null;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  Future<void> _takePhoto() async {
+    await MessageService.takeAndSendPhoto(
       chatId: widget.chatId,
       replyToMessageId: _replyingToId,
       repliedMessageText: _replyingToText,
@@ -222,7 +320,7 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: isLight ? Colors.white : null,
         foregroundColor: isLight ? Colors.black : null,
         title: GestureDetector(
-           onTap: () {
+          onTap: () {
             if (widget.otherUserId != currentUser.uid) {
               Navigator.push(
                 context,
@@ -259,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: MessageList(
               chatId: widget.chatId,
               currentUserId: currentUser.uid,
-               scrollController: _scrollController,
+              scrollController: _scrollController,
               onReplySwipe: _handleReplySwipe,
               onReply: _handleReply,
               onCopy: _handleCopy,
@@ -269,8 +367,6 @@ class _ChatScreenState extends State<ChatScreen> {
               onForward: _handleForward,
             ),
           ),
-
-          // ==================== НОВОЕ ПОЛЕ ВВОДА В СТИЛЕ iOS (как на скриншоте) ====================
           Container(
             padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
             decoration: BoxDecoration(
@@ -285,7 +381,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Column(
               children: [
-                // Ответ на сообщение
                 if (_replyingToId != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -319,24 +414,18 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                   ),
-
-                // Само поле ввода в стиле iMessage
                 Row(
                   children: [
-                    // Кнопка прикрепить
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: _sendImage,
+                      onPressed: _showAttachmentMenu,
                       child: Icon(
                         CupertinoIcons.paperclip,
                         color: isLight ? CupertinoColors.systemGrey : Colors.grey,
                         size: 28,
                       ),
                     ),
-
                     const SizedBox(width: 4),
-
-                    // Поле ввода
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -365,10 +454,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 4),
-
-                    // Emoji
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       onPressed: () {},
@@ -378,8 +464,6 @@ class _ChatScreenState extends State<ChatScreen> {
                         size: 28,
                       ),
                     ),
-
-                    // Кнопка отправки
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _messageController,
                       builder: (context, value, child) {

@@ -1,0 +1,196 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:open_file/open_file.dart';
+import '../version.dart';
+
+class UpdateService {
+  static const String BASE_URL = 'https://uploads.onex01.ru/Android/APKs/ChatiX';
+  
+  static Future<Map<String, dynamic>?> checkForUpdates() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$BASE_URL/version.json'),
+        headers: {'Cache-Control': 'no-cache'},
+      ).timeout(const Duration(seconds: 5));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final latestVersion = data['version'];
+        final currentVersion = AppVersion.version;
+        
+        if (_isNewerVersion(latestVersion, currentVersion)) {
+          return data;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  static bool _isNewerVersion(String latest, String current) {
+    try {
+      final latestParts = latest.split('.').map(int.parse).toList();
+      final currentParts = current.split('.').map(int.parse).toList();
+      
+      for (int i = 0; i < latestParts.length; i++) {
+        if (i >= currentParts.length) return true;
+        if (latestParts[i] > currentParts[i]) return true;
+        if (latestParts[i] < currentParts[i]) return false;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  static Future<void> showUpdateDialog(BuildContext context, Map<String, dynamic> updateInfo) async {
+    final shouldUpdate = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.system_update, color: Colors.blue, size: 28),
+              const SizedBox(width: 12),
+              const Text(
+                'Доступно обновление!',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Версия ${updateInfo['version']}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Доступна новая версия приложения!',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Размер: ${(updateInfo['fileSize'] / 1024 / 1024).toStringAsFixed(1)} МБ',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Позже'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Обновить'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    if (shouldUpdate == true && updateInfo['downloadUrl'] != null) {
+      await _downloadAndInstall(context, updateInfo['downloadUrl']);
+    }
+  }
+  
+  static Future<void> _downloadAndInstall(BuildContext context, String downloadUrl) async {
+    final progressDialog = showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            const Text(
+              'Загрузка обновления...',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Пожалуйста, подождите',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final directory = await getExternalStorageDirectory();
+      final filePath = '${directory!.path}/ChatiX_update.apk';
+      final file = File(filePath);
+      
+      final response = await http.get(Uri.parse(downloadUrl));
+      await file.writeAsBytes(response.bodyBytes);
+      
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Обновление загружено. Установка...'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      await OpenFile.open(filePath);
+      
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка загрузки: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}

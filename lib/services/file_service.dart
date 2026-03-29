@@ -1,0 +1,105 @@
+import 'dart:io';
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+
+class FileService {
+  static const int MAX_HEX_SIZE_MB = 1; // Максимальный размер для hex (1 МБ)
+  static const int MAX_FILE_SIZE_MB = 10; // Максимальный размер для файлов в Storage
+
+  /// Отправка файла (маленькие файлы через hex, большие через Storage)
+  static Future<void> sendFile({
+    required String chatId,
+    required File file,
+    String fileName = '',
+    String? replyToMessageId,
+    String? repliedMessageText,
+  }) async {
+    final currentUser = FirebaseAuth.instance.currentUser!;
+    final fileSize = await file.length();
+    final fileSizeMB = fileSize / (1024 * 1024);
+    final actualFileName = fileName.isNotEmpty ? fileName : file.path.split('/').last;
+    final fileExtension = actualFileName.split('.').last.toLowerCase();
+
+    if (fileSizeMB <= MAX_HEX_SIZE_MB) {
+      // Маленький файл - отправляем как hex
+      final bytes = await file.readAsBytes();
+      final hexString = _bytesToHex(bytes);
+      
+      final messageData = {
+        'senderId': currentUser.uid,
+        'type': 'file_hex',
+        'fileName': actualFileName,
+        'fileExtension': fileExtension,
+        'fileSize': fileSize,
+        'hexData': hexString,
+        'timestamp': FieldValue.serverTimestamp(),
+        'replyToMessageId': replyToMessageId,
+        'repliedMessageText': repliedMessageText,
+        'read': false,
+      };
+      
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+    } else if (fileSizeMB <= MAX_FILE_SIZE_MB) {
+      // Большой файл - через Firebase Storage
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('chats/$chatId/files/${DateTime.now().millisecondsSinceEpoch}_$actualFileName');
+      
+      await storageRef.putFile(file);
+      final downloadUrl = await storageRef.getDownloadURL();
+      
+      final messageData = {
+        'senderId': currentUser.uid,
+        'type': 'file_storage',
+        'fileName': actualFileName,
+        'fileExtension': fileExtension,
+        'fileSize': fileSize,
+        'fileUrl': downloadUrl,
+        'timestamp': FieldValue.serverTimestamp(),
+        'replyToMessageId': replyToMessageId,
+        'repliedMessageText': repliedMessageText,
+        'read': false,
+      };
+      
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+    } else {
+      throw Exception('Файл слишком большой (макс ${MAX_FILE_SIZE_MB} МБ)');
+    }
+    
+    await _updateLastMessage(chatId, '📎 Файл: $actualFileName');
+  }
+  
+  /// Получение файла из hex
+  static Future<File> getFileFromHex(String hexData, String fileName) async {
+    final bytes = _hexToBytes(hexData);
+    final tempDir = Directory.systemTemp;
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+  
+  static String _bytesToHex(List<int> bytes) {
+    return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+  }
+  
+  static List<int> _hexToBytes(String hex) {
+    return hex.split('').map((char) => int.parse(char, radix: 16)).toList();
+  }
+  
+  static Future<void> _updateLastMessage(String chatId, String lastMessageText) async {
+    await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+      'lastMessage': lastMessageText,
+      'lastMessageTime': FieldValue.serverTimestamp(),
+    });
+  }
+}

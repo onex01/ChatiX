@@ -10,6 +10,3 @@ class ThemeProvider with ChangeNotifier {
     notifyListeners();
   }
 }
-
-// Глобальный экземпляр (можно использовать в любом месте приложения)
-final themeProvider = ThemeProvider();

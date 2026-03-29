@@ -2,29 +2,44 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Обязательный топ-левел обработчик для фона (должен быть вне класса)
+/// Обязательный топ-левел обработчик для фона
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('📬 [Background] Получено сообщение: ${message.notification?.title}');
-  // FCM сам покажет системное уведомление, если в payload есть поле "notification"
 }
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications = 
+      FlutterLocalNotificationsPlugin();
 
-  /// Инициализация уведомлений (вызывать один раз в main.dart)
+  /// Инициализация уведомлений
   static Future<void> initialize() async {
+    // Настройка локальных уведомлений для Android
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings();
+    
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    
+    await _localNotifications.initialize(initSettings);
+
     // Запрос разрешений
-    final settings = await _messaging.requestPermission(
+    final notificationSettings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
-    print('🔔 Push notifications разрешены: ${settings.authorizationStatus}');
+    print('🔔 Push notifications разрешены: ${notificationSettings.authorizationStatus}');
 
     // Фон
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -32,16 +47,10 @@ class NotificationService {
     // Передний план
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
 
-    // Клик по уведомлению (приложение в фоне)
+    // Клик по уведомлению
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpened);
 
-    // Если приложение было полностью закрыто и пользователь нажал уведомление
-    final initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _handleMessageOpened(initialMessage);
-    }
-
-    // Получаем и выводим токен
+    // Получаем токен
     final token = await _messaging.getToken();
     print('🔑 FCM Token: $token');
   }
@@ -49,31 +58,35 @@ class NotificationService {
   static void _showForegroundNotification(RemoteMessage message) {
     final notification = message.notification;
     if (notification != null) {
-      Fluttertoast.showToast(
-        msg: '${notification.title ?? "Новое сообщение"}: ${notification.body ?? ""}',
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.TOP,
-        backgroundColor: Colors.blue[700],
-        textColor: Colors.white,
-        fontSize: 16.0,
+      // Показываем локальное уведомление
+      _localNotifications.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        notification.title ?? 'Новое сообщение',
+        notification.body ?? '',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'chatix_channel',
+            'ChatiX Уведомления',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
       );
     }
   }
 
-  /// Обработка клика по уведомлению (можно добавить навигацию в чат)
   static void _handleMessageOpened(RemoteMessage message) {
     final data = message.data;
     print('👆 Уведомление открыто! Данные: $data');
-
-    // Пример: если сервер отправляет chatId, можно открыть чат
+    
+    // TODO: Добавить навигацию в чат
     if (data['chatId'] != null) {
       print('Переход в чат: ${data['chatId']}');
-      // Здесь позже можно добавить глобальную навигацию:
-      // navigatorKey.currentState?.pushNamed('/chat', arguments: data['chatId']);
     }
   }
 
-  /// Сохраняем токен в Firestore (вызывать после входа пользователя)
+  /// Сохраняем токен в Firestore
   static Future<void> saveTokenToFirestore(String userId) async {
     try {
       final token = await _messaging.getToken();

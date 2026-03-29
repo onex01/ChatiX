@@ -1,9 +1,13 @@
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
 
-import 'providers/theme_provider.dart';           // ← Новый импорт
+import 'providers/theme_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'firebase_options.dart';
@@ -11,34 +15,70 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Инициализация Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Инициализация push-уведомлений
   await NotificationService.initialize();
-
-  runApp(const MyApp());
+  
+  // Отслеживаем состояние приложения для статуса онлайн
+  AppLifecycleListener? lifecycleListener;
+  if (FirebaseAuth.instance.currentUser != null) {
+    _setUserOnlineStatus(FirebaseAuth.instance.currentUser!.uid, true);
+  }
+  
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
+  
+  // Слушаем изменения жизненного цикла приложения
+  WidgetsBinding.instance.addObserver(
+    AppLifecycleObserver(),
+  );
 }
+
+class AppLifecycleObserver extends WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      if (state == AppLifecycleState.resumed) {
+        _setUserOnlineStatus(user.uid, true);
+      } else {
+        _setUserOnlineStatus(user.uid, false);
+      }
+    }
+  }
+}
+
+void _setUserOnlineStatus(String uid, bool isOnline) {
+  FirebaseFirestore.instance.collection('users').doc(uid).update({
+    'isOnline': isOnline,
+    'lastSeen': FieldValue.serverTimestamp(),
+  });
+}
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: themeProvider,          // ← Реактивная перестройка при смене темы
-      builder: (context, child) {
+    return Consumer2<ThemeProvider, SettingsProvider>(
+      builder: (context, themeProvider, settingsProvider, child) {
         return MaterialApp(
           title: 'ChatiX',
           debugShowCheckedModeBanner: false,
-
+          
           // Светлая тема
           theme: ThemeData.light().copyWith(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.blue,
+              seedColor: settingsProvider.accentColor,
               brightness: Brightness.light,
             ),
             scaffoldBackgroundColor: Colors.white,
@@ -47,20 +87,37 @@ class MyApp extends StatelessWidget {
               foregroundColor: Colors.black,
               elevation: 0,
             ),
+            textTheme: TextTheme(
+              bodyLarge: TextStyle(fontSize: settingsProvider.fontSize),
+              bodyMedium: TextStyle(fontSize: settingsProvider.fontSize - 2),
+              titleLarge: TextStyle(fontSize: settingsProvider.fontSize + 4),
+              titleMedium: TextStyle(fontSize: settingsProvider.fontSize + 2),
+            ),
           ),
-
-          // Тёмная тема (как было у тебя раньше)
+          
+          // Тёмная тема
           darkTheme: ThemeData.dark().copyWith(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.blue,
+              seedColor: settingsProvider.accentColor,
               brightness: Brightness.dark,
             ),
             scaffoldBackgroundColor: const Color(0xFF0F0F0F),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF0F0F0F),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            textTheme: TextTheme(
+              bodyLarge: TextStyle(fontSize: settingsProvider.fontSize),
+              bodyMedium: TextStyle(fontSize: settingsProvider.fontSize - 2),
+              titleLarge: TextStyle(fontSize: settingsProvider.fontSize + 4),
+              titleMedium: TextStyle(fontSize: settingsProvider.fontSize + 2),
+            ),
           ),
-
+          
           // Реальная тема, выбранная пользователем
           themeMode: themeProvider.themeMode,
-
+          
           home: const AuthWrapper(),
         );
       },

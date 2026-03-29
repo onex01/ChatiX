@@ -17,9 +17,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final user = FirebaseAuth.instance.currentUser!;
   final _nicknameController = TextEditingController();
   final _bioController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   String? _photoUrl;
   bool _saving = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -28,19 +30,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    if (doc.exists && mounted) {
-      setState(() {
-        _nicknameController.text = doc['nickname'] ?? '';
-        _bioController.text = doc['bio'] ?? '';
-        _photoUrl = doc['photoUrl'];
-      });
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _nicknameController.text = doc['nickname'] ?? '';
+          _bioController.text = doc['bio'] ?? '';
+          _phoneController.text = doc['phoneNumber'] ?? '';
+          _photoUrl = doc['photoUrl'];
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+      setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveProfile() async {
     final nickname = _nicknameController.text.trim().toLowerCase();
     final bio = _bioController.text.trim();
+    final phone = _phoneController.text.trim();
 
     if (nickname.isEmpty) {
       Fluttertoast.showToast(msg: "Никнейм не может быть пустым");
@@ -50,14 +62,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _saving = true);
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      final updates = {
         'nickname': nickname,
         'bio': bio,
-      });
+      };
+      
+      if (phone.isNotEmpty) {
+        updates['phoneNumber'] = phone;
+      }
+      
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(updates);
+      
       Fluttertoast.showToast(msg: "Профиль успешно обновлён");
-      if (mounted) Navigator.pop(context); // возвращаемся назад
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      Fluttertoast.showToast(msg: "Ошибка сохранения профиля");
+      Fluttertoast.showToast(msg: "Ошибка сохранения профиля: $e");
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -93,89 +112,109 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: const Text('Редактировать профиль'),
+        centerTitle: false,
+        elevation: 0,
         actions: [
           TextButton(
             onPressed: _saving ? null : _saveProfile,
-            child: const Text('Done', style: TextStyle(fontSize: 17, color: Colors.blue)),
+            child: const Text('Сохранить', style: TextStyle(fontSize: 17, color: Colors.blue)),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Center(
-              child: GestureDetector(
-                onTap: _pickAndUploadAvatar,
-                child: CircleAvatar(
-                  radius: 80,
-                  backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                  child: _photoUrl == null ? const Icon(Icons.person, size: 80, color: Colors.grey) : null,
-                ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  // Аватар
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 70,
+                          backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                          child: _photoUrl == null 
+                              ? Icon(Icons.person, size: 70, color: isLight ? Colors.grey : Colors.grey.shade400)
+                              : null,
+                        ),
+                        GestureDetector(
+                          onTap: _pickAndUploadAvatar,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isLight ? Colors.white : const Color(0xFF0F0F0F),
+                                width: 3,
+                              ),
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  // Никнейм
+                  TextField(
+                    controller: _nicknameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Никнейм',
+                      hintText: 'Введите ваш никнейм',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Телефон
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Номер телефона',
+                      hintText: '+7 XXX XXX XX XX',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Bio
+                  TextField(
+                    controller: _bioController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'О себе',
+                      hintText: 'Расскажите о себе...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                      prefixIcon: Icon(Icons.description_outlined),
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  
+                  if (_saving)
+                    const Center(child: CircularProgressIndicator()),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            const Text('Set New Photo or Video', style: TextStyle(color: Colors.blue, fontSize: 16)),
-
-            const SizedBox(height: 40),
-
-            TextField(
-              controller: _nicknameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            TextField(
-              controller: _bioController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Bio',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                hintText: 'Any details such as age, occupation or city...',
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            ListTile(
-              title: const Text('Change Number'),
-              trailing: Text('+65 8379 4988', style: TextStyle(color: Colors.grey[400])),
-              onTap: () {},
-            ),
-            const Divider(),
-
-            ListTile(
-              title: const Text('Username'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
-            const Divider(),
-
-            const SizedBox(height: 40),
-
-            ListTile(
-              title: const Text('Add Another Account', style: TextStyle(color: Colors.blue)),
-              onTap: () {},
-            ),
-
-            const SizedBox(height: 40),
-
-            ListTile(
-              title: const Text('Log Out', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                await FirebaseAuth.instance.signOut();
-                if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -183,6 +222,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nicknameController.dispose();
     _bioController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 }
