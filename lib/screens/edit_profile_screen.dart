@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../services/avatar_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -20,6 +20,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneController = TextEditingController();
 
   String? _photoUrl;
+  String? _avatarHex;
   bool _saving = false;
   bool _isLoading = true;
 
@@ -38,6 +39,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _bioController.text = doc['bio'] ?? '';
           _phoneController.text = doc['phoneNumber'] ?? '';
           _photoUrl = doc['photoUrl'];
+          _avatarHex = doc['avatarHex'];
           _isLoading = false;
         });
       } else {
@@ -83,30 +85,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickAndUploadAvatar() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1000,
-      imageQuality: 85,
-    );
-
-    if (pickedFile == null) return;
-
-    setState(() => _saving = true);
-
-    try {
-      final ref = FirebaseStorage.instance.ref().child('avatars/${user.uid}.jpg');
-      await ref.putFile(File(pickedFile.path));
-      final url = await ref.getDownloadURL();
-
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'photoUrl': url});
-
-      if (mounted) setState(() => _photoUrl = url);
-      Fluttertoast.showToast(msg: "Фото обновлено");
-    } catch (e) {
-      Fluttertoast.showToast(msg: "Ошибка загрузки фото");
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    final hexString = await AvatarService.pickAndCropAvatar();
+    
+    if (hexString != null && mounted) {
+      setState(() {
+        _avatarHex = hexString;
+        _photoUrl = null; // Очищаем старую URL если была
+      });
+      Fluttertoast.showToast(msg: "Аватар обновлён");
     }
   }
 
@@ -137,12 +123,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Stack(
                       alignment: Alignment.bottomRight,
                       children: [
-                        CircleAvatar(
-                          radius: 70,
-                          backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                          child: _photoUrl == null 
-                              ? Icon(Icons.person, size: 70, color: isLight ? Colors.grey : Colors.grey.shade400)
-                              : null,
+                        FutureBuilder<File?>(
+                          future: _avatarHex != null 
+                              ? AvatarService.hexToAvatarFile(_avatarHex!)
+                              : Future.value(null),
+                          builder: (context, snapshot) {
+                            if (_avatarHex != null && snapshot.hasData) {
+                              return CircleAvatar(
+                                radius: 70,
+                                backgroundImage: FileImage(snapshot.data!),
+                              );
+                            } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+                              return CircleAvatar(
+                                radius: 70,
+                                backgroundImage: NetworkImage(_photoUrl!),
+                              );
+                            } else {
+                              return CircleAvatar(
+                                radius: 70,
+                                child: Icon(Icons.person, size: 70, color: isLight ? Colors.grey : Colors.grey.shade400),
+                              );
+                            }
+                          },
                         ),
                         GestureDetector(
                           onTap: _pickAndUploadAvatar,

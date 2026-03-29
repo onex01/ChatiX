@@ -1,11 +1,32 @@
 import 'dart:io';
-import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:image/image.dart' as img;
 
 class FileConverterService {
   // Максимальный размер файла для hex конвертации (500 КБ)
-  // Firestore имеет лимит на размер документа 1 МБ
   static const int maxFileSize = 500 * 1024; // 500 KB
+
+  /// Генерирует миниатюру изображения в base64
+  static Future<String?> generateThumbnail(File file, {int maxWidth = 400}) async {
+    try {
+      final bytes = await file.readAsBytes();
+      img.Image? image = img.decodeImage(bytes);
+      if (image == null) return null;
+
+      // Масштабируем изображение
+      img.Image thumbnail = img.copyResize(image, width: maxWidth);
+
+      // Конвертируем в JPEG с хорошим сжатием
+      final thumbBytes = img.encodeJpg(thumbnail, quality: 75);
+      
+      return base64Encode(thumbBytes);
+    } catch (e) {
+      debugPrint('Ошибка генерации превью: $e');
+      return null;
+    }
+  }
   
   /// Конвертирует файл в hex строку
   static Future<String> fileToHex(File file) async {
@@ -13,7 +34,7 @@ class FileConverterService {
       final bytes = await file.readAsBytes();
       return _bytesToHex(bytes);
     } catch (e) {
-      print('Ошибка конвертации файла в hex: $e');
+      debugPrint('Ошибка конвертации файла в hex: $e');
       rethrow;
     }
   }
@@ -27,24 +48,24 @@ class FileConverterService {
       await file.writeAsBytes(bytes);
       return file;
     } catch (e) {
-      print('Ошибка конвертации hex в файл: $e');
+      debugPrint('Ошибка конвертации hex в файл: $e');
       rethrow;
     }
   }
   
   /// Конвертирует байты в hex строку
-  static String _bytesToHex(List<int> bytes) {
+  static String _bytesToHex(Uint8List bytes) {
     return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   }
   
   /// Конвертирует hex строку в байты
-  static List<int> _hexToBytes(String hex) {
-    final List<int> bytes = [];
+  static Uint8List _hexToBytes(String hex) {
+    final bytes = <int>[];
     for (int i = 0; i < hex.length; i += 2) {
       final byte = int.parse(hex.substring(i, i + 2), radix: 16);
       bytes.add(byte);
     }
-    return bytes;
+    return Uint8List.fromList(bytes);
   }
   
   /// Проверяет, можно ли конвертировать файл

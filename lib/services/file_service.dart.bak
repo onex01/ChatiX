@@ -92,8 +92,13 @@ class FileService {
     return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   }
   
-  static List<int> _hexToBytes(String hex) {
-    return hex.split('').map((char) => int.parse(char, radix: 16)).toList();
+  static Uint8List _hexToBytes(String hex) {
+    final bytes = <int>[];
+    for (int i = 0; i < hex.length; i += 2) {
+      final byte = int.parse(hex.substring(i, i + 2), radix: 16);
+      bytes.add(byte);
+    }
+    return Uint8List.fromList(bytes);
   }
   
   static Future<void> _updateLastMessage(String chatId, String lastMessageText) async {

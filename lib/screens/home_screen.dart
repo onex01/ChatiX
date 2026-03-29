@@ -1,13 +1,13 @@
+import 'package:flutter/material.dart';
 import 'dart:ui';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/rendering.dart';
 
 import 'profile_screen.dart';
 import 'settings_screen.dart';
-import 'user_profile_screen.dart';
+// import 'user_profile_screen.dart';
 import 'contacts_screen.dart';
 import 'chat_screen.dart';
 import '../widgets/chat_list.dart';
@@ -21,7 +21,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final currentUser = FirebaseAuth.instance.currentUser!;
   
   int _selectedTab = 0;
@@ -31,14 +31,53 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  
+  // Для скрытия нижней панели
+  final ScrollController _mainScrollController = ScrollController();
+  bool _isNavBarVisible = true;
+  double _navBarOffset = 0;
 
   @override
   void initState() {
     super.initState();
+    
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    
+    _mainScrollController.addListener(_handleScroll);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.unfocus();
       _checkForUpdatesOnStart();
     });
+  }
+  
+  void _handleScroll() {
+    // Исправляем: используем правильный импорт ScrollDirection
+    if (_mainScrollController.position.userScrollDirection == ScrollDirection.reverse) {
+      if (_isNavBarVisible) {
+        setState(() {
+          _isNavBarVisible = false;
+          _navBarOffset = 100;
+        });
+      }
+    } else if (_mainScrollController.position.userScrollDirection == ScrollDirection.forward) {
+      if (!_isNavBarVisible) {
+        setState(() {
+          _isNavBarVisible = true;
+          _navBarOffset = 0;
+        });
+      }
+    }
   }
 
   Future<void> _checkForUpdatesOnStart() async {
@@ -50,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _updateAvailable = true;
         _updateInfo = updateInfo;
+        _animationController.forward();
       });
     }
   }
@@ -64,6 +104,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _animationController.dispose();
+    _mainScrollController.dispose();
     super.dispose();
   }
 
@@ -101,58 +143,57 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             
-            // Кнопка обновления (если доступно)
             if (_updateAvailable)
               Positioned(
-                top: 60,
+                top: MediaQuery.of(context).padding.top + 8,
                 right: 16,
-                child: GestureDetector(
-                  onTap: _showUpdateDialog,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: GestureDetector(
+                    onTap: _showUpdateDialog,
+                    child: Material(
+                      elevation: 4,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.system_update, color: Colors.white, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Обновление ${_updateInfo?['version']}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.system_update, color: Colors.white, size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Обновление ${_updateInfo?['version']}',
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
             
-            // Нижняя навигация - компактная
+            // Нижняя навигация
             Positioned(
               bottom: 12,
               left: 0,
               right: 0,
               child: Center(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(25),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: isLight
-                            ? Colors.white.withOpacity(0.85)
-                            : Colors.black.withOpacity(0.75),
-                        borderRadius: BorderRadius.circular(30),
+                            ? Colors.white.withOpacity(0.75)
+                            : Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(25),
                         border: Border.all(
                           color: isLight
                               ? Colors.black.withOpacity(0.08)
@@ -177,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             index: 0,
                             isLight: isLight,
                           ),
-                          const SizedBox(width: 32),
+                          const SizedBox(width: 24),
                           _buildNavItem(
                             icon: Icons.contacts_outlined,
                             selectedIcon: Icons.contacts,
@@ -185,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             index: 1,
                             isLight: isLight,
                           ),
-                          const SizedBox(width: 32),
+                          const SizedBox(width: 24),
                           _buildNavItem(
                             icon: Icons.person_outline,
                             selectedIcon: Icons.person,
@@ -193,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             index: 2,
                             isLight: isLight,
                           ),
-                          const SizedBox(width: 32),
+                          const SizedBox(width: 24),
                           _buildNavItem(
                             icon: Icons.settings_outlined,
                             selectedIcon: Icons.settings,
@@ -234,34 +275,39 @@ class _HomeScreenState extends State<HomeScreen> {
           if (index != 0) _clearSearch();
         });
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (isLight ? Colors.blue.withOpacity(0.15) : Colors.blue.withOpacity(0.25))
-                  : Colors.transparent,
-              shape: BoxShape.circle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isLight ? Colors.blue.withOpacity(0.15) : Colors.blue.withOpacity(0.25))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedScale(
+              scale: isSelected ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isSelected ? selectedIcon : icon,
+                color: color,
+                size: 22,
+              ),
             ),
-            child: Icon(
-              isSelected ? selectedIcon : icon,
-              color: color,
-              size: 22,
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+              child: Text(label),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: color,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

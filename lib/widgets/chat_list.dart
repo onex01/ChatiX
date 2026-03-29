@@ -25,6 +25,7 @@ class _ChatListState extends State<ChatList> {
   @override
   void initState() {
     super.initState();
+    // Создаём чат "Заметки" по умолчанию (если его ещё нет)
     _ensureSelfNotesChatExists();
   }
 
@@ -102,7 +103,6 @@ class _ChatListState extends State<ChatList> {
           return displayName.toLowerCase().contains(widget.searchQuery.toLowerCase());
         }).toList();
 
-        // ИСПРАВЛЕНО: используем ListView.builder вместо SliverList.builder
         return ListView.builder(
           itemCount: filteredChats.length,
           itemBuilder: (context, index) {
@@ -113,7 +113,7 @@ class _ChatListState extends State<ChatList> {
               (id) => id != widget.currentUserId,
               orElse: () => widget.currentUserId,
             );
-            final isSelfChat = data['isSelfChat'] == true;
+             final isSelfChat = data['isSelfChat'] == true;
             final displayName = isSelfChat ? 'Заметки' : (userNicknames[otherUserId] ?? otherUserId);
             final photoUrl = userPhotoUrls[otherUserId];
             final isPinned = data['pinned'] ?? false;
@@ -122,6 +122,7 @@ class _ChatListState extends State<ChatList> {
             return CupertinoContextMenu.builder(
               actions: _buildContextMenuActions(doc, otherUserId, isSelfChat, isPinned),
               builder: (BuildContext context, Animation<double> animation) {
+                // Красивая iOS-анимация подъёма (как в сообщениях)
                 final scale = 1.0 + (animation.value * 0.025);
                 final lift = -6.0 * animation.value;
 
@@ -160,6 +161,7 @@ class _ChatListState extends State<ChatList> {
                         trailing: isPinned
                             ? const Icon(Icons.push_pin, size: 20, color: Colors.blueAccent)
                             : null,
+                        // ← ВОССТАНОВЛЕН onTap + CupertinoPageRoute (iOS-анимация)
                         onTap: () {
                           Navigator.push(
                             context,
@@ -227,7 +229,7 @@ class _ChatListState extends State<ChatList> {
             Navigator.pop(context);
             Navigator.push(
               context,
-              CupertinoPageRoute(
+              CupertinoPageRoute(                     // ← тоже iOS-анимация
                 builder: (_) => UserProfileScreen(userId: otherUserId),
               ),
             );

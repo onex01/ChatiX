@@ -10,7 +10,7 @@ NC='\033[0m' # No Color
 # Конфигурация сервера
 SERVER_USER="root"
 SERVER_PASS="dfkj04251"
-SERVER_HOST="192.168.1.100"
+SERVER_HOST="onex01.ru"
 SERVER_PORT="22"
 SERVER_PATH="/var/www/uploads/Android/APKs/ChatiX"
 UPLOAD_URL="https://uploads.onex01.ru/Android/APKs/ChatiX"

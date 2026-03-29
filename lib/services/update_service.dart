@@ -134,63 +134,92 @@ class UpdateService {
   }
   
   static Future<void> _downloadAndInstall(BuildContext context, String downloadUrl) async {
+    // Показываем диалог загрузки правильно
+    if (!context.mounted) return;
+
     final progressDialog = showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            const Text(
-              'Загрузка обновления...',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      builder: (BuildContext dialogContext) {
+        return WillPopScope(
+          onWillPop: () async => false, // Запрещаем закрытие назад
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Загрузка обновления...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                SizedBox(height: 8),
+                Text('Пожалуйста, подождите', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Пожалуйста, подождите',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
-    
+
     try {
       final directory = await getExternalStorageDirectory();
-      final filePath = '${directory!.path}/ChatiX_update.apk';
+      if (directory == null) throw Exception('Не удалось получить директорию для загрузки');
+
+      final filePath = '${directory.path}/ChatiX_update.apk';
       final file = File(filePath);
-      
+
+      // Скачиваем файл
       final response = await http.get(Uri.parse(downloadUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Ошибка сервера: ${response.statusCode}');
+      }
+
       await file.writeAsBytes(response.bodyBytes);
-      
+
+      // Закрываем диалог загрузки безопасно
       if (context.mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // закрываем progress dialog
+      }
+
+      // Показываем сообщение
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Обновление загружено. Установка...'),
+            content: Text('Обновление загружено. Запуск установки...'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
           ),
         );
       }
-      
-      await OpenFile.open(filePath);
-      
+
+      // Открываем APK
+      final result = await OpenFile.open(filePath);
+
+      if (result.type != ResultType.done) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Не удалось открыть файл: ${result.message}'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+
     } catch (e) {
+      // Закрываем диалог в случае ошибки
       if (context.mounted) {
-        Navigator.of(context).pop();
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {}
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка загрузки: $e'),
+            content: Text('Ошибка загрузки обновления:\n$e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
+      debugPrint('Update error: $e');
     }
   }
 }

@@ -1,4 +1,3 @@
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -20,8 +19,6 @@ void main() async {
   );
   await NotificationService.initialize();
   
-  // Отслеживаем состояние приложения для статуса онлайн
-  AppLifecycleListener? lifecycleListener;
   if (FirebaseAuth.instance.currentUser != null) {
     _setUserOnlineStatus(FirebaseAuth.instance.currentUser!.uid, true);
   }
@@ -36,7 +33,6 @@ void main() async {
     ),
   );
   
-  // Слушаем изменения жизненного цикла приложения
   WidgetsBinding.instance.addObserver(
     AppLifecycleObserver(),
   );
@@ -63,7 +59,6 @@ void _setUserOnlineStatus(String uid, bool isOnline) {
   });
 }
 
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -74,8 +69,6 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'ChatiX',
           debugShowCheckedModeBanner: false,
-          
-          // Светлая тема
           theme: ThemeData.light().copyWith(
             colorScheme: ColorScheme.fromSeed(
               seedColor: settingsProvider.accentColor,
@@ -94,8 +87,6 @@ class MyApp extends StatelessWidget {
               titleMedium: TextStyle(fontSize: settingsProvider.fontSize + 2),
             ),
           ),
-          
-          // Тёмная тема
           darkTheme: ThemeData.dark().copyWith(
             colorScheme: ColorScheme.fromSeed(
               seedColor: settingsProvider.accentColor,
@@ -114,10 +105,7 @@ class MyApp extends StatelessWidget {
               titleMedium: TextStyle(fontSize: settingsProvider.fontSize + 2),
             ),
           ),
-          
-          // Реальная тема, выбранная пользователем
           themeMode: themeProvider.themeMode,
-          
           home: const AuthWrapper(),
         );
       },
@@ -145,7 +133,6 @@ class AuthWrapper extends StatelessWidget {
           if (user.emailVerified) {
             return const HomeScreen();
           } else {
-            // Почта не подтверждена
             return Scaffold(
               body: Center(
                 child: Padding(
@@ -192,7 +179,6 @@ class AuthWrapper extends StatelessWidget {
           }
         }
 
-        // Не авторизован
         return const AuthScreen();
       },
     );

@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';  // ← ДОБАВИТЬ ЭТУ СТРОКУ
 import 'package:fluttertoast/fluttertoast.dart';
 import 'file_converter_service.dart';
 
@@ -52,7 +52,7 @@ class MessageService {
     }
   }
 
-  /// Отправка изображения
+  /// Отправка изображения (через hex)
   static Future<void> sendImageMessage({
     required String chatId,
     required XFile imageFile,
@@ -133,7 +133,7 @@ class MessageService {
     }
   }
 
-  /// Отправка файла
+  /// Отправка файла (через hex)
   static Future<void> sendFileMessage({
     required String chatId,
     required File file,
@@ -210,6 +210,21 @@ class MessageService {
         gravity: ToastGravity.BOTTOM,
       );
       rethrow;
+    }
+  }
+
+  /// Получение файла из hex сообщения
+  static Future<File?> getFileFromMessage(Map<String, dynamic> messageData) async {
+    try {
+      final hexData = messageData['hexData'];
+      final fileName = messageData['fileName'];
+      
+      if (hexData == null || fileName == null) return null;
+      
+      return await FileConverterService.hexToFile(hexData, fileName);
+    } catch (e) {
+      debugPrint('❌ Ошибка получения файла из сообщения: $e');
+      return null;
     }
   }
 

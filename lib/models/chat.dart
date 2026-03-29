@@ -5,7 +5,7 @@ class Chat {
   final String otherUserId;
   final String otherUserNickname;
   final String? otherUserPhotoUrl;
-  final Message? lastMessage;           // теперь Message виден
+  final Message? lastMessage;
   final DateTime lastMessageTime;
 
   Chat({

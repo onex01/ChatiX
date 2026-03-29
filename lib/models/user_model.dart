@@ -3,7 +3,7 @@ class UserModel {
   final String email;
   final String nickname;
   final String? photoUrl;
-  final String? bio;          // Новое поле
+  final String? bio;
 
   UserModel({
     required this.uid,
