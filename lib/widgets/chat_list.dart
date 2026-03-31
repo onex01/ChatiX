@@ -196,23 +196,22 @@ class _ChatListState extends State<ChatList> {
 
     return [
       CupertinoContextMenuAction(
-        child: Text(isPinned ? 'Открепить' : 'Закрепить'),
         trailingIcon: isPinned ? Icons.push_pin_outlined : Icons.push_pin,
         onPressed: () {
           Navigator.pop(context);
           _togglePin(doc);
         },
+        child: Text(isPinned ? 'Открепить' : 'Закрепить'),
       ),
       CupertinoContextMenuAction(
-        child: Text(isMuted ? 'Включить уведомления' : 'Заглушить'),
         trailingIcon: isMuted ? Icons.notifications : Icons.notifications_off,
         onPressed: () {
           Navigator.pop(context);
           _toggleMute(doc);
         },
+        child: Text(isMuted ? 'Включить уведомления' : 'Заглушить'),
       ),
       CupertinoContextMenuAction(
-        child: const Text('Пометить как непрочитанное'),
         trailingIcon: Icons.mark_chat_unread_outlined,
         onPressed: () {
           Navigator.pop(context);
@@ -220,10 +219,10 @@ class _ChatListState extends State<ChatList> {
             const SnackBar(content: Text('Отмечено как непрочитанное')),
           );
         },
+        child: const Text('Пометить как непрочитанное'),
       ),
       if (!isSelfChat)
         CupertinoContextMenuAction(
-          child: const Text('Открыть профиль'),
           trailingIcon: Icons.person_outline,
           onPressed: () {
             Navigator.pop(context);
@@ -234,9 +233,9 @@ class _ChatListState extends State<ChatList> {
               ),
             );
           },
+          child: const Text('Открыть профиль'),
         ),
       CupertinoContextMenuAction(
-        child: const Text('Поиск в чате'),
         trailingIcon: Icons.search,
         onPressed: () {
           Navigator.pop(context);
@@ -244,23 +243,24 @@ class _ChatListState extends State<ChatList> {
             const SnackBar(content: Text('Поиск в чате (скоро)')),
           );
         },
+        child: const Text('Поиск в чате'),
       ),
       CupertinoContextMenuAction(
-        child: const Text('Архивировать'),
         trailingIcon: Icons.archive_outlined,
         onPressed: () {
           Navigator.pop(context);
           _archiveChat(doc);
         },
+        child: const Text('Архивировать'),
       ),
       CupertinoContextMenuAction(
         isDestructiveAction: true,
-        child: const Text('Удалить чат'),
         trailingIcon: Icons.delete_forever,
         onPressed: () {
           Navigator.pop(context);
           _deleteChat(doc);
         },
+        child: const Text('Удалить чат'),
       ),
     ];
   }

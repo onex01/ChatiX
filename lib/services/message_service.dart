@@ -4,9 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:flutter/material.dart';  // ← ДОБАВИТЬ ЭТУ СТРОКУ
 import 'package:fluttertoast/fluttertoast.dart';
 import 'file_converter_service.dart';
+import 'package:flutter/material.dart';
 
 class MessageService {
   static final _firestore = FirebaseFirestore.instance;
@@ -45,9 +45,9 @@ class MessageService {
 
       await _updateLastMessage(chatId, text);
       
-      debugPrint('✅ Текстовое сообщение отправлено');
+      print('✅ Текстовое сообщение отправлено');
     } catch (e) {
-      debugPrint('❌ Ошибка отправки текста: $e');
+      print('❌ Ошибка отправки текста: $e');
       rethrow;
     }
   }
@@ -72,8 +72,9 @@ class MessageService {
       }
       
       final fileSize = await file.length();
-      debugPrint('📷 Размер файла: ${fileSize ~/ 1024} KB');
+      print('📷 Размер файла: ${fileSize ~/ 1024} KB');
       
+      // Проверяем размер файла
       if (fileSize > FileConverterService.maxFileSize) {
         Fluttertoast.showToast(
           msg: 'Файл слишком большой (макс ${FileConverterService.maxFileSize ~/ 1024} KB)',
@@ -83,6 +84,7 @@ class MessageService {
         return;
       }
       
+      // Конвертируем изображение в hex
       Fluttertoast.showToast(
         msg: 'Конвертация изображения...',
         gravity: ToastGravity.BOTTOM,
@@ -92,7 +94,7 @@ class MessageService {
       final fileName = p.basename(imageFile.path);
       final fileExtension = p.extension(file.path).toLowerCase();
       
-      debugPrint('📝 Изображение сконвертировано в hex, длина: ${hexData.length} символов');
+      print('📝 Изображение сконвертировано в hex, длина: ${hexData.length} символов');
       
       final messageData = {
         'senderId': currentUser.uid,
@@ -113,7 +115,7 @@ class MessageService {
           .collection('messages')
           .add(messageData);
           
-      debugPrint('✅ Изображение отправлено через hex');
+      print('✅ Изображение отправлено через hex');
       Fluttertoast.showToast(
         msg: 'Изображение отправлено!',
         backgroundColor: Colors.green,
@@ -123,7 +125,7 @@ class MessageService {
       await _updateLastMessage(chatId, '📷 Фото');
       
     } catch (e) {
-      debugPrint('❌ Ошибка отправки изображения: $e');
+      print('❌ Ошибка отправки изображения: $e');
       Fluttertoast.showToast(
         msg: 'Ошибка отправки: $e',
         backgroundColor: Colors.red,
@@ -154,7 +156,7 @@ class MessageService {
       final fileExtension = p.extension(file.path).toLowerCase();
       final fileSize = await file.length();
       
-      debugPrint('📎 Размер файла: ${fileSize ~/ 1024} KB');
+      print('📎 Размер файла: ${fileSize ~/ 1024} KB');
       
       if (fileSize > FileConverterService.maxFileSize) {
         Fluttertoast.showToast(
@@ -165,6 +167,7 @@ class MessageService {
         return;
       }
       
+      // Конвертируем файл в hex
       Fluttertoast.showToast(
         msg: 'Конвертация файла...',
         gravity: ToastGravity.BOTTOM,
@@ -172,7 +175,7 @@ class MessageService {
       
       final hexData = await FileConverterService.fileToHex(file);
       
-      debugPrint('📝 Файл сконвертирован в hex, длина: ${hexData.length} символов');
+      print('📝 Файл сконвертирован в hex, длина: ${hexData.length} символов');
       
       final messageData = {
         'senderId': currentUser.uid,
@@ -193,7 +196,7 @@ class MessageService {
           .collection('messages')
           .add(messageData);
           
-      debugPrint('✅ Файл отправлен через hex');
+      print('✅ Файл отправлен через hex');
       Fluttertoast.showToast(
         msg: 'Файл отправлен!',
         backgroundColor: Colors.green,
@@ -203,7 +206,7 @@ class MessageService {
       await _updateLastMessage(chatId, '📎 Файл: $fileName');
       
     } catch (e) {
-      debugPrint('❌ Ошибка отправки файла: $e');
+      print('❌ Ошибка отправки файла: $e');
       Fluttertoast.showToast(
         msg: 'Ошибка отправки: $e',
         backgroundColor: Colors.red,
@@ -223,7 +226,7 @@ class MessageService {
       
       return await FileConverterService.hexToFile(hexData, fileName);
     } catch (e) {
-      debugPrint('❌ Ошибка получения файла из сообщения: $e');
+      print('❌ Ошибка получения файла из сообщения: $e');
       return null;
     }
   }
@@ -246,7 +249,7 @@ class MessageService {
         repliedMessageText: repliedMessageText,
       );
     } catch (e) {
-      debugPrint('Ошибка выбора файла: $e');
+      print('Ошибка выбора файла: $e');
       rethrow;
     }
   }
@@ -262,7 +265,7 @@ class MessageService {
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85,
-        maxWidth: 800,
+        maxWidth: 800, // Уменьшаем размер для hex
       );
 
       if (pickedFile == null) return;
@@ -274,7 +277,7 @@ class MessageService {
         repliedMessageText: repliedMessageText,
       );
     } catch (e) {
-      debugPrint('Ошибка выбора изображения: $e');
+      print('Ошибка выбора изображения: $e');
       rethrow;
     }
   }
@@ -302,7 +305,7 @@ class MessageService {
         repliedMessageText: repliedMessageText,
       );
     } catch (e) {
-      debugPrint('Ошибка съемки фото: $e');
+      print('Ошибка съемки фото: $e');
       rethrow;
     }
   }

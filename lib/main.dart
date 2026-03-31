@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -14,15 +13,15 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Инициализация Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Инициализация push-уведомлений
   await NotificationService.initialize();
-  
-  if (FirebaseAuth.instance.currentUser != null) {
-    _setUserOnlineStatus(FirebaseAuth.instance.currentUser!.uid, true);
-  }
-  
+
   runApp(
     MultiProvider(
       providers: [
@@ -32,31 +31,6 @@ void main() async {
       child: const MyApp(),
     ),
   );
-  
-  WidgetsBinding.instance.addObserver(
-    AppLifecycleObserver(),
-  );
-}
-
-class AppLifecycleObserver extends WidgetsBindingObserver {
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      if (state == AppLifecycleState.resumed) {
-        _setUserOnlineStatus(user.uid, true);
-      } else {
-        _setUserOnlineStatus(user.uid, false);
-      }
-    }
-  }
-}
-
-void _setUserOnlineStatus(String uid, bool isOnline) {
-  FirebaseFirestore.instance.collection('users').doc(uid).update({
-    'isOnline': isOnline,
-    'lastSeen': FieldValue.serverTimestamp(),
-  });
 }
 
 class MyApp extends StatelessWidget {
@@ -69,6 +43,8 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'ChatiX',
           debugShowCheckedModeBanner: false,
+          
+          // Светлая тема
           theme: ThemeData.light().copyWith(
             colorScheme: ColorScheme.fromSeed(
               seedColor: settingsProvider.accentColor,
@@ -87,6 +63,8 @@ class MyApp extends StatelessWidget {
               titleMedium: TextStyle(fontSize: settingsProvider.fontSize + 2),
             ),
           ),
+          
+          // Тёмная тема
           darkTheme: ThemeData.dark().copyWith(
             colorScheme: ColorScheme.fromSeed(
               seedColor: settingsProvider.accentColor,
@@ -105,7 +83,10 @@ class MyApp extends StatelessWidget {
               titleMedium: TextStyle(fontSize: settingsProvider.fontSize + 2),
             ),
           ),
+          
+          // Реальная тема, выбранная пользователем
           themeMode: themeProvider.themeMode,
+          
           home: const AuthWrapper(),
         );
       },
@@ -133,6 +114,7 @@ class AuthWrapper extends StatelessWidget {
           if (user.emailVerified) {
             return const HomeScreen();
           } else {
+            // Почта не подтверждена
             return Scaffold(
               body: Center(
                 child: Padding(
@@ -179,6 +161,7 @@ class AuthWrapper extends StatelessWidget {
           }
         }
 
+        // Не авторизован
         return const AuthScreen();
       },
     );

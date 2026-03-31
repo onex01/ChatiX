@@ -35,34 +35,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get()
-          .timeout(const Duration(seconds: 10));
-      
-      if (doc.exists && mounted) {
-        final data = doc.data() as Map<String, dynamic>;
-        setState(() {
-          _nickname = data['nickname'] ?? user.email?.split('@')[0];
-          _photoUrl = data['photoUrl'];
-          // Проверяем существование поля phoneNumber
-          _phoneNumber = data.containsKey('phoneNumber') ? data['phoneNumber'] : null;
-          _bio = data['bio'] ?? 'Привет! Я использую ChatiX';
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      print('Error loading profile: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-        // Не показываем ошибку пользователю, просто используем значения по умолчанию
-      }
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .timeout(const Duration(seconds: 10));
+    
+    if (doc.exists && mounted) {
+      final data = doc.data() as Map<String, dynamic>;
+      setState(() {
+        _nickname = data['nickname'] ?? user.email?.split('@')[0];
+        _photoUrl = data['photoUrl'];
+        // Проверяем существование поля phoneNumber
+        _phoneNumber = data.containsKey('phoneNumber') ? data['phoneNumber'] : null;
+        _bio = data['bio'] ?? 'Привет! Я использую ChatiX';
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
+    }
+  } catch (e) {
+    print('Error loading profile: $e');
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   Future<void> _checkContactsPermission() async {
     final hasPermission = await FlutterContacts.requestPermission();

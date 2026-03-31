@@ -7,12 +7,10 @@ class ThemeProvider with ChangeNotifier {
 
   ThemeMode get themeMode => _themeMode;
 
-  // Конструктор с загрузкой сохранённой темы
   ThemeProvider() {
     _loadThemeFromPrefs();
   }
 
-  // Загрузка темы из SharedPreferences
   Future<void> _loadThemeFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final savedTheme = prefs.getString(_themeKey);
@@ -26,20 +24,18 @@ class ThemeProvider with ChangeNotifier {
           _themeMode = ThemeMode.dark;
           break;
         case 'system':
-        default:
           _themeMode = ThemeMode.system;
+          break;
       }
-      notifyListeners(); // Обновляем UI после загрузки
+      notifyListeners();
     }
   }
 
-  // Смена темы + сохранение
   Future<void> setTheme(ThemeMode mode) async {
-    if (_themeMode == mode) return; // Ничего не делаем, если тема та же
+    if (_themeMode == mode) return;
 
     _themeMode = mode;
 
-    // Сохраняем в SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     String themeString;
 
@@ -51,12 +47,11 @@ class ThemeProvider with ChangeNotifier {
         themeString = 'dark';
         break;
       case ThemeMode.system:
-      default:
         themeString = 'system';
+        break;
     }
 
     await prefs.setString(_themeKey, themeString);
-
     notifyListeners();
   }
 }

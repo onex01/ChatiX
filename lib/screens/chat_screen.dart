@@ -1,11 +1,11 @@
+import 'package:ChatiX/services/message_service.dart';
+import 'package:ChatiX/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/message_service.dart';
-import '../services/notification_service.dart';
 import '../widgets/message_list.dart';
 import 'user_profile_screen.dart';
 
@@ -51,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } catch (e) {
-      debugPrint("Ошибка загрузки профиля: $e");
+      print("Ошибка загрузки профиля: $e");
     }
     if (mounted) {
       NotificationService.saveTokenToFirestore(currentUser.uid);
@@ -84,7 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       await batch.commit();
     } catch (e) {
-      debugPrint("Ошибка при пометке сообщений как прочитанных: $e");
+      print("Ошибка при пометке сообщений как прочитанных: $e");
     }
   }
 
@@ -160,6 +160,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // ==================== МЕНЮ ВЛОЖЕНИЙ ====================
   void _showAttachmentMenu() {
     final isLight = Theme.of(context).brightness == Brightness.light;
     
@@ -222,6 +223,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ==================== ОТПРАВКА ТЕКСТА ====================
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -246,6 +248,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // ==================== ОТПРАВКА ФОТОГРАФИИ ====================
   Future<void> _sendImage() async {
     await MessageService.pickAndSendImage(
       chatId: widget.chatId,
@@ -265,6 +268,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // ==================== ОТПРАВКА ФАЙЛА ====================
   Future<void> _sendFile() async {
     await MessageService.pickAndSendFile(
       chatId: widget.chatId,
@@ -284,6 +288,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // ==================== СНЯТЬ ФОТО ====================
   Future<void> _takePhoto() async {
     await MessageService.takeAndSendPhoto(
       chatId: widget.chatId,
@@ -320,7 +325,7 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: isLight ? Colors.white : null,
         foregroundColor: isLight ? Colors.black : null,
         title: GestureDetector(
-          onTap: () {
+           onTap: () {
             if (widget.otherUserId != currentUser.uid) {
               Navigator.push(
                 context,
@@ -357,7 +362,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: MessageList(
               chatId: widget.chatId,
               currentUserId: currentUser.uid,
-              scrollController: _scrollController,
+               scrollController: _scrollController,
               onReplySwipe: _handleReplySwipe,
               onReply: _handleReply,
               onCopy: _handleCopy,
@@ -367,6 +372,8 @@ class _ChatScreenState extends State<ChatScreen> {
               onForward: _handleForward,
             ),
           ),
+
+          // ==================== ПОЛЕ ВВОДА ====================
           Container(
             padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
             decoration: BoxDecoration(
@@ -381,6 +388,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Column(
               children: [
+                // Ответ на сообщение
                 if (_replyingToId != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -414,8 +422,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                   ),
+
+                // Само поле ввода
                 Row(
                   children: [
+                    // Кнопка прикрепить (теперь открывает меню)
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       onPressed: _showAttachmentMenu,
@@ -425,7 +436,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         size: 28,
                       ),
                     ),
+
                     const SizedBox(width: 4),
+
+                    // Поле ввода
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -454,7 +468,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(width: 4),
+
+                    // Emoji (пока заглушка)
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       onPressed: () {},
@@ -464,6 +481,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         size: 28,
                       ),
                     ),
+
+                    // Кнопка отправки
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _messageController,
                       builder: (context, value, child) {

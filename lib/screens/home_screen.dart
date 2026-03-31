@@ -1,18 +1,16 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/rendering.dart';
 
-import 'profile_screen.dart';
-import 'settings_screen.dart';
-// import 'user_profile_screen.dart';
-import 'contacts_screen.dart';
-import 'chat_screen.dart';
 import '../widgets/chat_list.dart';
 import '../providers/settings_provider.dart';
 import '../services/update_service.dart';
+import 'chat_screen.dart';
+import 'contacts_screen.dart';
+import 'profile_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,92 +19,60 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> {
   final currentUser = FirebaseAuth.instance.currentUser!;
-  
+
   int _selectedTab = 0;
-  bool _updateAvailable = false;
-  Map<String, dynamic>? _updateInfo;
-  
+  late final PageController _pageController;
+
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  
-  // Для скрытия нижней панели
-  final ScrollController _mainScrollController = ScrollController();
-  bool _isNavBarVisible = true;
-  double _navBarOffset = 0;
 
   @override
   void initState() {
     super.initState();
-    
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-    
-    _mainScrollController.addListener(_handleScroll);
-    
+    _pageController = PageController(initialPage: _selectedTab);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.unfocus();
       _checkForUpdatesOnStart();
     });
   }
-  
-  void _handleScroll() {
-    // Исправляем: используем правильный импорт ScrollDirection
-    if (_mainScrollController.position.userScrollDirection == ScrollDirection.reverse) {
-      if (_isNavBarVisible) {
-        setState(() {
-          _isNavBarVisible = false;
-          _navBarOffset = 100;
-        });
-      }
-    } else if (_mainScrollController.position.userScrollDirection == ScrollDirection.forward) {
-      if (!_isNavBarVisible) {
-        setState(() {
-          _isNavBarVisible = true;
-          _navBarOffset = 0;
-        });
-      }
-    }
-  }
 
   Future<void> _checkForUpdatesOnStart() async {
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    
+
     final updateInfo = await UpdateService.checkForUpdates();
     if (updateInfo != null && mounted) {
-      setState(() {
-        _updateAvailable = true;
-        _updateInfo = updateInfo;
-        _animationController.forward();
-      });
-    }
-  }
-
-  void _showUpdateDialog() {
-    if (_updateInfo != null) {
-      UpdateService.showUpdateDialog(context, _updateInfo!);
+      await UpdateService.showUpdateDialog(context, updateInfo);
     }
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _animationController.dispose();
-    _mainScrollController.dispose();
     super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    setState(() {
+      _selectedTab = index;
+      if (index != 0) {
+        _clearSearch();
+      }
+    });
+  }
+
+  void _onNavTap(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _clearSearch() {
@@ -119,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     return Scaffold(
       body: Container(
         decoration: settingsProvider.wallpaperUrl != null
@@ -132,9 +98,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             : null,
         child: Stack(
           children: [
-            // Основной контент
-            IndexedStack(
-              index: _selectedTab,
+            // Основной контент с поддержкой свайпов
+            PageView(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              physics: const ClampingScrollPhysics(), // плавный свайп
               children: [
                 _buildChatsContent(),
                 const ContactsScreen(),
@@ -142,42 +110,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 const SettingsScreen(),
               ],
             ),
-            
-            if (_updateAvailable)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
-                right: 16,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: GestureDetector(
-                    onTap: _showUpdateDialog,
-                    child: Material(
-                      elevation: 4,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.system_update, color: Colors.white, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Обновление ${_updateInfo?['version']}',
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            
-            // Нижняя навигация
+
+            // Нижняя навигация (стек поверх PageView)
             Positioned(
               bottom: 12,
               left: 0,
@@ -263,74 +197,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required bool isLight,
   }) {
     final isSelected = _selectedTab == index;
-    final color = isSelected 
+    final color = isSelected
         ? (isLight ? Colors.blue : Colors.blue.shade400)
         : (isLight ? Colors.grey.shade700 : Colors.grey.shade500);
-    
+
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTab = index;
-          _searchFocusNode.unfocus();
-          if (index != 0) _clearSearch();
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isLight ? Colors.blue.withOpacity(0.15) : Colors.blue.withOpacity(0.25))
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedScale(
-              scale: isSelected ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isSelected ? selectedIcon : icon,
-                color: color,
-                size: 22,
-              ),
+      onTap: () => _onNavTap(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (isLight ? Colors.blue.withOpacity(0.15) : Colors.blue.withOpacity(0.25))
+                  : Colors.transparent,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 2),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontSize: 10,
-                color: color,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-              child: Text(label),
+            child: Icon(
+              isSelected ? selectedIcon : icon,
+              color: color,
+              size: 22,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildChatsContent() {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.fromLTRB(16, 
-            MediaQuery.of(context).padding.top + 12, 
-            16, 
-            12),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            MediaQuery.of(context).padding.top + 12,
+            16,
+            12,
+          ),
           decoration: BoxDecoration(
-            color: isLight 
+            color: isLight
                 ? Colors.white.withOpacity(0.96)
                 : const Color(0xFF0F0F0F).withOpacity(0.96),
             border: Border(
               bottom: BorderSide(
-                color: isLight 
-                    ? Colors.grey.shade200
-                    : Colors.grey.shade800,
+                color: isLight ? Colors.grey.shade200 : Colors.grey.shade800,
                 width: 0.5,
               ),
             ),
@@ -355,10 +278,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   hintStyle: TextStyle(
                     color: isLight ? Colors.grey.shade500 : Colors.grey.shade400,
                   ),
-                  prefixIcon: Icon(Icons.search, size: 20, color: isLight ? Colors.grey.shade600 : Colors.grey.shade400),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 20,
+                    color: isLight ? Colors.grey.shade600 : Colors.grey.shade400,
+                  ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.clear, size: 20, color: isLight ? Colors.grey.shade600 : Colors.grey.shade400),
+                          icon: Icon(
+                            Icons.clear,
+                            size: 20,
+                            color: isLight ? Colors.grey.shade600 : Colors.grey.shade400,
+                          ),
                           onPressed: _clearSearch,
                         )
                       : null,
@@ -392,7 +323,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
-        
         Expanded(
           child: _searchQuery.isEmpty
               ? ChatList(
@@ -407,12 +337,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildUserSearchResults() {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
           .where('nickname', isGreaterThanOrEqualTo: _searchQuery.toLowerCase())
-          .where('nickname', isLessThanOrEqualTo: _searchQuery.toLowerCase() + '\uf8ff')
+          .where('nickname', isLessThanOrEqualTo: '${_searchQuery.toLowerCase()}\uf8ff')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -472,7 +402,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   radius: 28,
                   backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
                   child: photoUrl == null
-                      ? Icon(Icons.person, size: 32, color: isLight ? Colors.grey : Colors.grey.shade400)
+                      ? Icon(
+                          Icons.person,
+                          size: 32,
+                          color: isLight ? Colors.grey : Colors.grey.shade400,
+                        )
                       : null,
                 ),
                 title: Text(
@@ -487,9 +421,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 trailing: ElevatedButton(
-                  onPressed: () {
-                    _startChat(userId, nickname);
-                  },
+                  onPressed: () => _startChat(userId, nickname),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -511,10 +443,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _startChat(String otherUserId, String nickname) async {
     final chatId = [currentUser.uid, otherUserId]..sort();
     final chatDocId = '${chatId[0]}_${chatId[1]}';
-    
+
     final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatDocId);
     final chatDoc = await chatRef.get();
-    
+
     if (!chatDoc.exists) {
       await chatRef.set({
         'participants': [currentUser.uid, otherUserId],
@@ -523,23 +455,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
-    
+
     if (mounted) {
       Navigator.push(
         context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => ChatScreen(
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
             chatId: chatDocId,
             otherUserId: otherUserId,
           ),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-            return SlideTransition(position: offsetAnimation, child: child);
-          },
         ),
       );
     }

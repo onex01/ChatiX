@@ -1,50 +1,29 @@
-import 'dart:io';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 class CacheService {
+  static final DefaultCacheManager _cacheManager = DefaultCacheManager();
+  
   static Future<void> clearCache() async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
-      
-      final appDir = await getApplicationDocumentsDirectory();
-      final cacheDir = Directory('${appDir.path}/cache');
-      if (await cacheDir.exists()) {
-        await cacheDir.delete(recursive: true);
-      }
-    } catch (e) {
-      print('Error clearing cache: $e');
+    await _cacheManager.emptyCache();
+    
+    final tempDir = await getTemporaryDirectory();
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
     }
   }
   
   static Future<int> getCacheSize() async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      if (!await tempDir.exists()) return 0;
-      
-      int size = 0;
-      await for (var entity in tempDir.list(recursive: true)) {
-        if (entity is File) {
-          size += await entity.length();
-        }
+    final tempDir = await getTemporaryDirectory();
+    if (!await tempDir.exists()) return 0;
+    
+    int size = 0;
+    await for (var file in tempDir.list(recursive: true)) {
+      if (file is File) {
+        size += await file.length();
       }
-      
-      final appDir = await getApplicationDocumentsDirectory();
-      final cacheDir = Directory('${appDir.path}/cache');
-      if (await cacheDir.exists()) {
-        await for (var entity in cacheDir.list(recursive: true)) {
-          if (entity is File) {
-            size += await entity.length();
-          }
-        }
-      }
-      
-      return size ~/ (1024 * 1024); // Возвращаем в МБ
-    } catch (e) {
-      print('Error getting cache size: $e');
-      return 0;
     }
+    return size ~/ (1024 * 1024); // Возвращаем в МБ
   }
 }

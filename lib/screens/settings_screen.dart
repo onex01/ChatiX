@@ -1,9 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../providers/theme_provider.dart';
 import '../providers/settings_provider.dart';
@@ -11,7 +10,6 @@ import '../services/cache_service.dart';
 import '../services/update_service.dart';
 import '../version.dart';
 import 'edit_profile_screen.dart';
-
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -49,120 +47,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
   }
-
-  Future<void> _showWallpaperPicker(SettingsProvider settings) async {
-    final List<Map<String, dynamic>> builtInWallpapers = [
-      {'name': 'Градиент синий', 'color1': Colors.blue, 'color2': Colors.purple, 'isGradient': true},
-      {'name': 'Градиент зелёный', 'color1': Colors.green, 'color2': Colors.teal, 'isGradient': true},
-      {'name': 'Градиент оранжевый', 'color1': Colors.orange, 'color2': Colors.red, 'isGradient': true},
-      {'name': 'Сплошной цвет', 'color': Colors.grey.shade100, 'isGradient': false},
-      {'name': 'Тёмный', 'color': Colors.grey.shade900, 'isGradient': false},
-    ];
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.8,
-        expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: scrollController,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Встроенные обои', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  ...builtInWallpapers.map((wallpaper) => ListTile(
-                    leading: wallpaper['isGradient'] == true
-                        ? Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [wallpaper['color1'], wallpaper['color2']],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          )
-                        : Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: wallpaper['color'],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                          ),
-                    title: Text(wallpaper['name']),
-                    onTap: () {
-                      if (wallpaper['isGradient'] == true) {
-                        settings.setWallpaperGradient([
-                          wallpaper['color1'].value,
-                          wallpaper['color2'].value,
-                        ]);
-                      } else {
-                        settings.setWallpaperColor(wallpaper['color'].value);
-                      }
-                      Navigator.pop(context);
-                    },
-                  )),
-                  
-                  const Divider(),
-                  
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Своё изображение', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.photo_library),
-                    title: const Text('Выбрать из галереи'),
-                    onTap: () async {
-                      final picker = ImagePicker();
-                      final file = await picker.pickImage(source: ImageSource.gallery);
-                      if (file != null) {
-                        // Здесь можно сохранить изображение в Firebase Storage
-                        // settings.setWallpaperImage(file.path);
-                      }
-                      Navigator.pop(context);
-                    },
-                  ),
-                  
-                  if (settings.wallpaperUrl != null || settings.wallpaperColor != null)
-                    ListTile(
-                      leading: const Icon(Icons.delete, color: Colors.red),
-                      title: const Text('Удалить обои', style: TextStyle(color: Colors.red)),
-                      onTap: () {
-                        settings.clearWallpaper();
-                        Navigator.pop(context);
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
   
   @override
   Widget build(BuildContext context) {
@@ -172,44 +56,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     return Scaffold(
       backgroundColor: isLight ? Colors.grey.shade50 : const Color(0xFF0F0F0F),
-      appBar: AppBar(
-        title: const Text('Настройки'),
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: isLight ? Colors.white : null,
-        foregroundColor: isLight ? Colors.black : null,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          // Профиль
-          _buildProfileSection(isLight),
-          const Divider(height: 1),
-          
-          // Внешний вид
-          _buildAppearanceSection(settingsProvider, themeProvider, isLight),
-          const Divider(height: 1),
-          
-          // Чаты
-          _buildChatSection(isLight),
-          const Divider(height: 1),
-          
-          // Кэш
-          _buildCacheSection(isLight),
-          const Divider(height: 1),
-          
-          // Обновления
-          _buildUpdateSection(isLight),
-          const Divider(height: 1),
-          
-          // О приложении
-          _buildAboutSection(isLight),
-          const Divider(height: 1),
-          
-          // Выход
-          _buildLogoutSection(isLight),
-          
-          const SizedBox(height: 30),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            title: const Text('Настройки'),
+            centerTitle: false,
+            elevation: 0,
+            backgroundColor: isLight ? Colors.white : null,
+            foregroundColor: isLight ? Colors.black : null,
+            floating: false,
+            pinned: true,
+            snap: true,
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                // Профиль
+                _buildProfileSection(isLight),
+                const Divider(height: 1),
+                
+                // Внешний вид
+                _buildAppearanceSection(settingsProvider, themeProvider, isLight),
+                const Divider(height: 1),
+                
+                // Чаты
+                _buildChatSection(isLight),
+                const Divider(height: 1),
+                
+                // Кэш
+                _buildCacheSection(isLight),
+                const Divider(height: 1),
+                
+                // Обновления
+                _buildUpdateSection(isLight),
+                const Divider(height: 1),
+                
+                // О приложении
+                _buildAboutSection(isLight),
+                const Divider(height: 1),
+                
+                // Выход
+                _buildLogoutSection(isLight),
+                
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -424,7 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: Text('$_appVersion ($_buildNumber)', style: TextStyle(color: isLight ? Colors.grey.shade600 : Colors.grey.shade500)),
           onTap: () => _showAboutDialog(),
         ),
-        // AboutSection(isLight: isLight),
+        AboutSection(isLight: isLight),
       ],
     );
   }
@@ -582,6 +474,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
   
+  void _showWallpaperPicker(SettingsProvider settings) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Wrap(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.wallpaper),
+            title: const Text('Выбрать из галереи'),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Выбор обоев из галереи в разработке')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.palette),
+            title: const Text('Цвет фона'),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Выбор цвета в разработке')),
+              );
+            },
+          ),
+          if (settings.wallpaperUrl != null)
+            ListTile(
+              leading: const Icon(Icons.delete),
+              title: const Text('Удалить обои'),
+              onTap: () {
+                settings.setWallpaper(null);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Обои удалены')),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+  
   void _showCacheOptions(int currentSize) {
     showDialog(
       context: context,
@@ -629,7 +566,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('Версия: $_appVersion ($_buildNumber)'),
             const SizedBox(height: 8),
             const Text('Сделано командой © 2026 Duality Project'),
-            const Text('Github: https://github.com/onex01/ChatiX'),
           ],
         ),
         actions: [
@@ -694,53 +630,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // Отдельный виджет для информации о приложении
-// class AboutSection extends StatelessWidget {
-//   final bool isLight;
+class AboutSection extends StatelessWidget {
+  final bool isLight;
   
-//   const AboutSection({super.key, required this.isLight});
+  const AboutSection({super.key, required this.isLight});
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       margin: const EdgeInsets.all(16),
-//       padding: const EdgeInsets.all(20),
-//       decoration: BoxDecoration(
-//         color: isLight ? Colors.grey.shade50 : const Color(0xFF1C1C1E),
-//         borderRadius: BorderRadius.circular(16),
-//         border: Border.all(
-//           color: isLight ? Colors.grey.shade200 : Colors.grey.shade800,
-//         ),
-//       ),
-//       child: Column(
-//         children: [
-//           const Icon(Icons.chat_bubble_outline, size: 48, color: Colors.blue),
-//           const SizedBox(height: 12),
-//           Text(
-//             'ChatiX',
-//             style: TextStyle(
-//               fontSize: 24,
-//               fontWeight: FontWeight.bold,
-//               color: isLight ? Colors.black87 : Colors.white,
-//             ),
-//           ),
-//           const SizedBox(height: 8),
-//           Text(
-//             'Мессенджер с открытым исходным кодом',
-//             style: TextStyle(
-//               fontSize: 12,
-//               color: isLight ? Colors.grey.shade600 : Colors.grey.shade400,
-//             ),
-//           ),
-//           const SizedBox(height: 8),
-//           Text(
-//             'Сделано командой © 2026 Duality Project',
-//             style: TextStyle(
-//               fontSize: 12,
-//               color: isLight ? Colors.grey.shade500 : Colors.grey.shade500,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isLight ? Colors.grey.shade50 : const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isLight ? Colors.grey.shade200 : Colors.grey.shade800,
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.chat_bubble_outline, size: 48, color: Colors.blue),
+          const SizedBox(height: 12),
+          Text(
+            'ChatiX',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: isLight ? Colors.black87 : Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Мессенджер с открытым исходным кодом',
+            style: TextStyle(
+              fontSize: 14,
+              color: isLight ? Colors.grey.shade600 : Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Сделано командой © 2026 Duality Project',
+            style: TextStyle(
+              fontSize: 12,
+              color: isLight ? Colors.grey.shade500 : Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
