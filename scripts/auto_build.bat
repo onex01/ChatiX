@@ -17,8 +17,8 @@ set BACKUP_DIR=%PROJECT_DIR%\.backup
 
 cd /d %PROJECT_DIR%
 
-echo 🚀 Starting build process...
-echo 📡 Server: %SERVER_HOST%
+echo  Starting build process...
+echo  Server: %SERVER_HOST%
 
 REM ===== BACKUP =====
 if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
@@ -28,7 +28,7 @@ for /f "tokens=2 delims=:" %%a in ('findstr "version:" pubspec.yaml') do (
 )
 
 set CURRENT_VERSION=%CURRENT_VERSION: =%
-echo 📦 Current version: %CURRENT_VERSION%
+echo  Current version: %CURRENT_VERSION%
 
 REM ===== PARSE VERSION =====
 for /f "tokens=1,2 delims=+" %%a in ("%CURRENT_VERSION%") do (
@@ -48,7 +48,7 @@ set /a NEW_BUILD_NUMBER=BUILD_NUMBER+1
 set NEW_VERSION_NUMBER=%MAJOR%.%MINOR%.%NEW_PATCH%
 set NEW_VERSION=%NEW_VERSION_NUMBER%+%NEW_BUILD_NUMBER%
 
-echo 🔧 Next version: %NEW_VERSION%
+echo  Next version: %NEW_VERSION%
 
 REM ===== BACKUP FILES =====
 copy pubspec.yaml "%BACKUP_DIR%\pubspec.yaml.backup" >nul
@@ -71,13 +71,13 @@ echo }
 ) > lib\version.dart
 
 REM ===== BUILD =====
-echo 📱 Building APK...
+echo Building APK...
 call flutter clean
 call flutter pub get
 call flutter build apk --release
 
 if errorlevel 1 (
-    echo ❌ Build failed! Rolling back...
+    echo Build failed! Rolling back...
 
     copy "%BACKUP_DIR%\pubspec.yaml.backup" pubspec.yaml >nul
 
@@ -89,7 +89,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo ✅ Build successful!
+echo  Build successful!
 
 REM ===== APK =====
 set APK_NAME=ChatiX-%NEW_VERSION_NUMBER%.apk
@@ -119,7 +119,7 @@ echo put build/app/outputs/flutter-apk/version.json
 echo bye
 ) > "%SFTP_SCRIPT%"
 
-echo 📤 Uploading via SFTP...
+echo  Uploading via SFTP...
 
 REM ===== PASSWORD (через PowerShell hack) =====
 powershell -Command ^
@@ -129,7 +129,7 @@ powershell -Command ^
 "$cred=New-Object System.Management.Automation.PSCredential('%SERVER_USER%',$sec);" ^
 "Start-Process cmd -ArgumentList '/c ' + $cmd -Credential $cred -Wait"
 
-echo 📦 Upload complete
+echo  Upload complete
 
 REM ===== CLEANUP =====
 del "%SFTP_SCRIPT%"
@@ -137,8 +137,8 @@ rmdir /s /q "%BACKUP_DIR%"
 
 echo.
 echo ==========================================
-echo ✅ BUILD AND UPLOAD COMPLETE
+echo  BUILD AND UPLOAD COMPLETE
 echo ==========================================
-echo 📱 %UPLOAD_URL%/%APK_NAME%
-echo 📋 %UPLOAD_URL%/version.json
+echo  %UPLOAD_URL%/%APK_NAME%
+echo  %UPLOAD_URL%/version.json
 echo ==========================================

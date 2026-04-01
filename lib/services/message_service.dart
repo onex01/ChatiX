@@ -1,13 +1,14 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
-import 'package:fluttertoast/fluttertoast.dart';
-import 'file_converter_service.dart';
-import 'package:flutter/material.dart';
 
+import 'package:ChatiX/services/file_converter_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+  import 'package:image_picker/image_picker.dart';
+ import 'package:path/path.dart' as p;
+ 
 class MessageService {
   static final _firestore = FirebaseFirestore.instance;
   static final _auth = FirebaseAuth.instance;
@@ -43,7 +44,7 @@ class MessageService {
           .collection('messages')
           .add(messageData);
 
-      await _updateLastMessage(chatId, text);
+      await updateLastMessage(chatId, text);
       
       print('✅ Текстовое сообщение отправлено');
     } catch (e) {
@@ -73,8 +74,7 @@ class MessageService {
       
       final fileSize = await file.length();
       print('📷 Размер файла: ${fileSize ~/ 1024} KB');
-      
-      // Проверяем размер файла
+       
       if (fileSize > FileConverterService.maxFileSize) {
         Fluttertoast.showToast(
           msg: 'Файл слишком большой (макс ${FileConverterService.maxFileSize ~/ 1024} KB)',
@@ -83,8 +83,7 @@ class MessageService {
         );
         return;
       }
-      
-      // Конвертируем изображение в hex
+       
       Fluttertoast.showToast(
         msg: 'Конвертация изображения...',
         gravity: ToastGravity.BOTTOM,
@@ -122,7 +121,7 @@ class MessageService {
         gravity: ToastGravity.BOTTOM,
       );
 
-      await _updateLastMessage(chatId, '📷 Фото');
+      await updateLastMessage(chatId, '📷 Фото');
       
     } catch (e) {
       print('❌ Ошибка отправки изображения: $e');
@@ -166,8 +165,7 @@ class MessageService {
         );
         return;
       }
-      
-      // Конвертируем файл в hex
+       
       Fluttertoast.showToast(
         msg: 'Конвертация файла...',
         gravity: ToastGravity.BOTTOM,
@@ -203,7 +201,7 @@ class MessageService {
         gravity: ToastGravity.BOTTOM,
       );
 
-      await _updateLastMessage(chatId, '📎 Файл: $fileName');
+      await updateLastMessage(chatId, '📎 Файл: $fileName');
       
     } catch (e) {
       print('❌ Ошибка отправки файла: $e');
@@ -265,7 +263,7 @@ class MessageService {
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85,
-        maxWidth: 800, // Уменьшаем размер для hex
+        maxWidth: 800,
       );
 
       if (pickedFile == null) return;
@@ -310,7 +308,9 @@ class MessageService {
     }
   }
 
-  static Future<void> _updateLastMessage(String chatId, String lastMessageText) async {
+  // ==================== ПУБЛИЧНЫЙ МЕТОД ДЛЯ ОБНОВЛЕНИЯ ПОСЛЕДНЕГО СООБЩЕНИЯ ====================
+  /// Используется из CircleVideoService и других сервисов
+  static Future<void> updateLastMessage(String chatId, String lastMessageText) async {
     await _firestore.collection('chats').doc(chatId).update({
       'lastMessage': lastMessageText,
       'lastMessageTime': FieldValue.serverTimestamp(),

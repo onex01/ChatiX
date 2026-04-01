@@ -6,15 +6,12 @@ class Message {
   final String text;
   final Timestamp timestamp;
   final bool isRead;
-
-  // Поля для ответа
-  final String? replyToMessageId;
-  final String? repliedMessageText;
-
-  // Новые поля для редактирования и удаления
+   final String? replyToMessageId;
+   final String? repliedMessageText;
   final bool isEdited;
   final Timestamp? editedAt;
   final bool isDeleted;
+  final String type;                    // ← НОВОЕ: text / image_hex / file_hex
 
   Message({
     required this.id,
@@ -27,6 +24,7 @@ class Message {
     this.isEdited = false,
     this.editedAt,
     this.isDeleted = false,
+    this.type = 'text',
   });
 
   Map<String, dynamic> toMap() {
@@ -40,6 +38,7 @@ class Message {
       'isEdited': isEdited,
       'editedAt': editedAt,
       'isDeleted': isDeleted,
+      'type': type,
     };
   }
 
@@ -55,6 +54,7 @@ class Message {
       isEdited: map['isEdited'] ?? false,
       editedAt: map['editedAt'],
       isDeleted: map['isDeleted'] ?? false,
+      type: map['type'] ?? 'text',
     );
   }
 }

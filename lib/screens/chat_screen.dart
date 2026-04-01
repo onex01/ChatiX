@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'package:ChatiX/services/circle_video_service.dart';
 import 'package:ChatiX/services/message_service.dart';
 import 'package:ChatiX/services/notification_service.dart';
+import 'package:ChatiX/services/user_cache_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
@@ -24,42 +27,136 @@ class _ChatScreenState extends State<ChatScreen> {
   final currentUser = FirebaseAuth.instance.currentUser!;
 
   String? otherUserNickname;
-  String? otherUserPhotoUrl;
-
+   String? otherUserPhotoUrl;
   String? _replyingToId;
   String? _replyingToText;
 
   final ScrollController _scrollController = ScrollController();
 
+  // ==================== СТАТУСЫ ОНЛАЙН / ПЕЧАТАЕТ ====================
+  bool? _isOnlineInChat;   // находится ли собеседник именно в этом чате
+  DateTime? _lastSeen;
+  bool _isTyping = false;
+
+  StreamSubscription? _chatStatusSubscription;
+
+  // Кэш файлов для оптимизации (убирает повторные FutureBuilder при скролле)
+
+  String _getStatusText() {
+    if (_isTyping) return 'печатает...';
+    if (_isOnlineInChat == true) return 'В сети';
+    if (_lastSeen == null) return 'Был(а) недавно';
+    
+    final now = DateTime.now();
+    final difference = now.difference(_lastSeen!);
+    
+    if (difference.inMinutes < 1) return 'Был(а) недавно';
+    if (difference.inHours < 1) return 'Был(а) ${difference.inMinutes} мин назад';
+    if (difference.inDays < 1) return 'Был(а) ${difference.inHours} ч назад';
+    if (difference.inDays < 7) return 'Был(а) ${difference.inDays} дн назад';
+    
+    return 'Был(а) ${_lastSeen!.day}.${_lastSeen!.month}.${_lastSeen!.year}';
+  }
+
   @override
   void initState() {
     super.initState();
     _loadOtherUserInfo();
+    _setupRealTimeChatStatus();
+    _joinChat();
   }
 
   Future<void> _loadOtherUserInfo() async {
-    if (widget.otherUserId == currentUser.uid) {
-      setState(() => otherUserNickname = 'Заметки');
-      return;
-    }
-    try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.otherUserId).get();
-      if (doc.exists && mounted) {
-        setState(() {
-          otherUserNickname = doc['nickname'] ?? widget.otherUserId;
-          otherUserPhotoUrl = doc['photoUrl'];
-        });
-      }
-    } catch (e) {
-      print("Ошибка загрузки профиля: $e");
-    }
-    if (mounted) {
-      NotificationService.saveTokenToFirestore(currentUser.uid);
-    }
+  final cache = UserCacheService();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _markMessagesAsRead();
+  if (widget.otherUserId == currentUser.uid) {
+    setState(() => otherUserNickname = 'Заметки');
+    return;
+  }
+
+  // Сначала берём из кэша (мгновенно)
+  final cachedNickname = cache.getNickname(widget.otherUserId);
+  if (cachedNickname != null) {
+    setState(() {
+      otherUserNickname = cachedNickname;
+      otherUserPhotoUrl = cache.getPhotoUrl(widget.otherUserId);
     });
+  }
+
+  // Затем обновляем из Firestore в фоне
+  try {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.otherUserId).get();
+    if (doc.exists && mounted) {
+      final data = doc.data()!;
+      final nickname = data['nickname'] ?? widget.otherUserId;
+      final photoUrl = data['photoUrl'];
+
+      setState(() {
+        otherUserNickname = nickname;
+        otherUserPhotoUrl = photoUrl;
+      });
+
+      // Сохраняем в кэш
+      await cache.cacheUser(widget.otherUserId, nickname, photoUrl);
+    }
+  } catch (e) {
+    print("Ошибка загрузки профиля: $e");
+  }
+
+  if (mounted) {
+    NotificationService.saveTokenToFirestore(currentUser.uid);
+  }
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _markMessagesAsRead();
+  });
+}
+
+  // ==================== НОВАЯ ЛОГИКА СТАТУСОВ (реал-тайм в чате) ====================
+  void _setupRealTimeChatStatus() {
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
+
+    _chatStatusSubscription = chatRef.snapshots().listen((snapshot) {
+      if (!mounted || !snapshot.exists) return;
+      final data = snapshot.data()!;
+
+      final onlineUsers = List<String>.from(data['onlineUsers'] ?? []);
+      final typingUsers = List<String>.from(data['typingUsers'] ?? []);
+
+      setState(() {
+        _isOnlineInChat = onlineUsers.contains(widget.otherUserId);
+        _isTyping = typingUsers.contains(widget.otherUserId);
+        _lastSeen = data['lastSeen']?.toDate();
+      });
+    });
+  }
+
+  Future<void> _joinChat() async {
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
+    await chatRef.set({
+      'onlineUsers': FieldValue.arrayUnion([currentUser.uid]),
+      'lastSeen': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _leaveChat() async {
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
+    await chatRef.update({
+      'onlineUsers': FieldValue.arrayRemove([currentUser.uid]),
+      'lastSeen': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void _updateTypingStatus() {
+    if (widget.otherUserId == currentUser.uid) return;
+    final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
+    final hasText = _messageController.text.trim().isNotEmpty;
+
+    if (hasText) {
+      chatRef.update({'typingUsers': FieldValue.arrayUnion([currentUser.uid])});
+    } else {
+      chatRef.update({'typingUsers': FieldValue.arrayRemove([currentUser.uid])});
+    }
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -161,6 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   // ==================== МЕНЮ ВЛОЖЕНИЙ ====================
+    // ==================== МЕНЮ ВЛОЖЕНИЙ ====================
   void _showAttachmentMenu() {
     final isLight = Theme.of(context).brightness == Brightness.light;
     
@@ -216,6 +314,23 @@ class _ChatScreenState extends State<ChatScreen> {
                 _takePhoto();
               },
             ),
+            // ==================== НОВАЯ КНОПКА ВИДЕОКРУЖКА ====================
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.pink.withOpacity(0.1),
+                child: const Icon(Icons.videocam_rounded, color: Colors.pink),
+              ),
+              title: const Text('Видеокружок'),
+              onTap: () {
+                Navigator.pop(context);
+                CircleVideoService.recordAndSendCircle(
+                  context: context,                    // ← ОБЯЗАТЕЛЬНО
+                  chatId: widget.chatId,
+                  replyToMessageId: _replyingToId,
+                  repliedMessageText: _replyingToText,
+                );
+              },
+            ),
             const SizedBox(height: 12),
           ],
         ),
@@ -228,6 +343,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
+    await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
+      'typingUsers': FieldValue.arrayRemove([currentUser.uid])
+    });
+
     await MessageService.sendTextMessage(
       chatId: widget.chatId,
       text: text,
@@ -235,11 +354,13 @@ class _ChatScreenState extends State<ChatScreen> {
       repliedMessageText: _replyingToText,
     );
 
-    setState(() {
-      _replyingToId = null;
-      _replyingToText = null;
-    });
-    _messageController.clear();
+    if (mounted) {
+      setState(() {
+        _replyingToId = null;
+        _replyingToText = null;
+      });
+      _messageController.clear();
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -310,6 +431,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _leaveChat();
+    _chatStatusSubscription?.cancel();
     _scrollController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -325,7 +448,7 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: isLight ? Colors.white : null,
         foregroundColor: isLight ? Colors.black : null,
         title: GestureDetector(
-           onTap: () {
+          onTap: () {
             if (widget.otherUserId != currentUser.uid) {
               Navigator.push(
                 context,
@@ -344,12 +467,27 @@ class _ChatScreenState extends State<ChatScreen> {
                       : null,
                 ),
               const SizedBox(width: 12),
-              Text(
-                displayName,
-                style: TextStyle(
-                  color: isLight ? Colors.black : null,
-                  fontWeight: FontWeight.w600,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    style: TextStyle(
+                      color: isLight ? Colors.black : null,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (widget.otherUserId != currentUser.uid)
+                    Text(
+                      _getStatusText(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isTyping
+                            ? Colors.green
+                            : (_isOnlineInChat == true ? Colors.green : Colors.grey),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -362,7 +500,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: MessageList(
               chatId: widget.chatId,
               currentUserId: currentUser.uid,
-               scrollController: _scrollController,
+              scrollController: _scrollController,
               onReplySwipe: _handleReplySwipe,
               onReply: _handleReply,
               onCopy: _handleCopy,
@@ -387,8 +525,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             child: Column(
-              children: [
-                // Ответ на сообщение
+               children: [
                 if (_replyingToId != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -422,11 +559,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                   ),
-
-                // Само поле ввода
+ 
                 Row(
                   children: [
-                    // Кнопка прикрепить (теперь открывает меню)
+                    // Кнопка прикрепить
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       onPressed: _showAttachmentMenu,
@@ -465,18 +601,27 @@ class _ChatScreenState extends State<ChatScreen> {
                           maxLines: null,
                           keyboardAppearance: isLight ? Brightness.light : Brightness.dark,
                           textCapitalization: TextCapitalization.sentences,
+                          onChanged: (_) => _updateTypingStatus(),
                         ),
                       ),
                     ),
 
                     const SizedBox(width: 4),
 
-                    // Emoji (пока заглушка)
+                    // КНОПКА ЗАПИСИ ВИДЕОКРУЖКА (вместо эмодзи)
+                                        // КНОПКА ЗАПИСИ ВИДЕОКРУЖКА
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: () {},
+                      onPressed: () {
+                        CircleVideoService.recordAndSendCircle(
+                          context: context,                    // ← ОБЯЗАТЕЛЬНО
+                          chatId: widget.chatId,
+                          replyToMessageId: _replyingToId,
+                          repliedMessageText: _replyingToText,
+                        );
+                      },
                       child: Icon(
-                        CupertinoIcons.smiley,
+                        Icons.videocam_rounded,
                         color: isLight ? CupertinoColors.systemGrey : Colors.grey,
                         size: 28,
                       ),

@@ -25,8 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _bio;
   bool _isLoading = true;
   int _contactsCount = 0;
-  List<Contact> _contacts = [];
-
+ 
   @override
   void initState() {
     super.initState();
@@ -76,8 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         withProperties: true,
         withPhoto: false,
       );
-      setState(() {
-        _contacts = contacts;
+       setState(() {
         _contactsCount = contacts.length;
       });
       

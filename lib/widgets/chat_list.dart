@@ -1,4 +1,5 @@
 import 'package:ChatiX/screens/user_profile_screen.dart';
+import 'package:ChatiX/services/user_cache_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -338,8 +339,9 @@ class _ChatListState extends State<ChatList> {
     }
   }
 
-  Future<void> _loadUserInfoIfNeeded(List<QueryDocumentSnapshot> chats) async {
+    Future<void> _loadUserInfoIfNeeded(List<QueryDocumentSnapshot> chats) async {
     final Set<String> uidsToLoad = {};
+    final cache = UserCacheService();
 
     for (var doc in chats) {
       final data = doc.data() as Map<String, dynamic>;
@@ -354,15 +356,42 @@ class _ChatListState extends State<ChatList> {
 
     if (uidsToLoad.isEmpty) return;
 
+    // Сначала берём всё из локального кэша (мгновенно)
+    for (var uid in uidsToLoad) {
+      final cachedNick = cache.getNickname(uid);
+      final cachedPhoto = cache.getPhotoUrl(uid);
+
+      if (cachedNick != null) {
+        userNicknames[uid] = cachedNick;
+      }
+      if (cachedPhoto != null && cachedPhoto.isNotEmpty) {
+        userPhotoUrls[uid] = cachedPhoto;
+      }
+    }
+
+    // Теперь загружаем из Firestore только те, которых нет в кэше
+    final uidsToFetchFromDb = uidsToLoad.where((uid) => !userNicknames.containsKey(uid)).toSet();
+
+    if (uidsToFetchFromDb.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+
     try {
       final usersSnapshot = await FirebaseFirestore.instance
           .collection('users')
-          .where(FieldPath.documentId, whereIn: uidsToLoad.toList())
+          .where(FieldPath.documentId, whereIn: uidsToFetchFromDb.toList())
           .get();
 
       for (var doc in usersSnapshot.docs) {
-        userNicknames[doc.id] = doc['nickname'] ?? doc.id;
-        userPhotoUrls[doc.id] = doc['photoUrl'] ?? '';
+        final nickname = doc['nickname'] ?? doc.id;
+        final photoUrl = doc['photoUrl'] ?? '';
+
+        userNicknames[doc.id] = nickname;
+        userPhotoUrls[doc.id] = photoUrl;
+
+        // Сохраняем в постоянный кэш
+        await cache.cacheUser(doc.id, nickname, photoUrl);
       }
 
       if (mounted) setState(() {});

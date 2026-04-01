@@ -1,6 +1,6 @@
-// Auto-generated version file - DO NOT EDIT MANUALLY
+// Auto-generated version file
 class AppVersion {
-  static const String version = '0.1.23';
-  static const int buildNumber = 23;
-  static const String fullVersion = '0.1.23+23';
+  static const String version = '0.1.24';
+  static const int buildNumber = 24;
+  static const String fullVersion = '0.1.24+24';
 }

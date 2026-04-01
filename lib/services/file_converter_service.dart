@@ -1,7 +1,5 @@
 import 'dart:io';
-import 'dart:convert';
-import 'dart:typed_data';
-
+  
 class FileConverterService {
   // Максимальный размер файла для hex конвертации (500 КБ)
   // Firestore имеет лимит на размер документа 1 МБ

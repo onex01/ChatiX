@@ -52,7 +52,7 @@ class UpdateService {
   
   static Future<void> showUpdateDialog(BuildContext context, Map<String, dynamic> updateInfo) async {
     // Создаем отдельный контекст для диалога
-    final navigatorKey = Navigator.of(context);
+    Navigator.of(context);
     
     final shouldUpdate = await showDialog<bool>(
       context: context,
@@ -164,7 +164,7 @@ class UpdateService {
   
   static Future<void> _showDownloadProgress(BuildContext context, String downloadUrl) async {
     // Создаем диалог с прогрессом
-    final progressDialog = showDialog(
+    showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {

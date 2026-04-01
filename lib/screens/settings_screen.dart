@@ -236,39 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
-  
-  Widget _buildCacheSection(bool isLight) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            'Кэш',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: isLight ? Colors.grey.shade700 : Colors.grey.shade400,
-            ),
-          ),
-        ),
-        FutureBuilder<int>(
-          future: CacheService.getCacheSize(),
-          builder: (context, snapshot) {
-            final size = snapshot.data ?? 0;
-            return ListTile(
-              leading: Icon(Icons.storage, color: isLight ? Colors.grey.shade700 : Colors.grey.shade400),
-              title: Text('Размер кэша', style: TextStyle(color: isLight ? Colors.black87 : Colors.white)),
-              subtitle: Text('$size МБ', style: TextStyle(color: isLight ? Colors.grey.shade600 : Colors.grey.shade500)),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _showCacheOptions(size),
-            );
-          },
-        ),
-      ],
-    );
-  }
-  
+   
   Widget _buildUpdateSection(bool isLight) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,12 +487,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
   
-  void _showCacheOptions(int currentSize) {
+    Widget _buildCacheSection(bool isLight) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            'Кэш',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isLight ? Colors.grey.shade700 : Colors.grey.shade400,
+            ),
+          ),
+        ),
+        ListTile(
+          leading: Icon(Icons.storage, color: isLight ? Colors.grey.shade700 : Colors.grey.shade400),
+          title: Text('Кэш сообщений', style: TextStyle(color: isLight ? Colors.black87 : Colors.white)),
+          subtitle: Text(
+            '${MessageFileCache().size} файлов в памяти',
+            style: TextStyle(color: isLight ? Colors.grey.shade600 : Colors.grey.shade500),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _showCacheOptions(),
+        ),
+      ],
+    );
+  }
+
+  void _showCacheOptions() {
+    final cache = MessageFileCache();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Очистка кэша'),
-        content: Text('Текущий размер кэша: $currentSize МБ\n\nОчистить кэш?'),
+        title: const Text('Кэш сообщений'),
+        content: Text(
+          'В кэше сейчас: ${cache.size} файлов\n\n'
+          'Очистить кэш сообщений?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -532,13 +533,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await CacheService.clearCache();
+              cache.clear();
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Кэш очищен')),
+                  const SnackBar(content: Text('Кэш сообщений очищен')),
                 );
-                setState(() {});
+                setState(() {}); // обновляем FutureBuilder / ListTile
               }
             },
             style: ElevatedButton.styleFrom(
@@ -612,8 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case ThemeMode.light: return 'Светлая';
       case ThemeMode.dark: return 'Тёмная';
       case ThemeMode.system: return 'Системная';
-      default: return 'Системная';
-    }
+      }
   }
   
   String _getColorName(Color color) {

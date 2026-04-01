@@ -1,3 +1,4 @@
+import 'package:ChatiX/services/presence_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -160,7 +161,7 @@ class AuthWrapper extends StatelessWidget {
             );
           }
         }
-
+      PresenceService.initPresence();
         // Не авторизован
         return const AuthScreen();
       },
