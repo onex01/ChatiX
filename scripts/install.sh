@@ -6,17 +6,17 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 SERVER_HOST="192.168.1.100"
-SERVER_PATH="/var/www/uploads.onex01.ru/Android/APKs/Rizz"
+SERVER_PATH="/var/www/rizz"
 
 # Получаем последнюю версию
-LATEST_VERSION=$(curl -s "https://uploads.onex01.ru/Android/APKs/Rizz/version.json" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+LATEST_VERSION=$(curl -s "https://rizz.onex01.ru/version.json" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
 
 if [ -z "$LATEST_VERSION" ]; then
     echo -e "${RED}❌ Failed to get latest version${NC}"
     exit 1
 fi
 
-APK_URL="https://uploads.onex01.ru/Android/APKs/Rizz/Rizz-$LATEST_VERSION.apk"
+APK_URL="https://rizz.onex01.ru/-$LATEST_VERSION.apk"
 APK_FILE="Rizz-$LATEST_VERSION.apk"
 
 echo -e "${GREEN}📱 Downloading $APK_FILE...${NC}"

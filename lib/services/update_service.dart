@@ -7,7 +7,7 @@ import 'package:open_file/open_file.dart';
 import '../version.dart';
 
 class UpdateService {
-  static const String baseUrl = 'https://uploads.onex01.ru/Android/APKs/Rizz';
+  static const String baseUrl = 'https://rizz.onex01.ru/';
   
   static Future<Map<String, dynamic>?> checkForUpdates() async {
     try {

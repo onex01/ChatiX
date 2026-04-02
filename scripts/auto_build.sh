@@ -12,11 +12,11 @@ SERVER_USER="root"
 SERVER_PASS="dfkj04251"
 SERVER_HOST="onex01.ru"
 SERVER_PORT="22"
-SERVER_PATH="/var/www/uploads/Android/APKs/Rizz"
-UPLOAD_URL="https://uploads.onex01.ru/Android/APKs/Rizz"
+SERVER_PATH="/var/www/rizz"
+UPLOAD_URL="https://rizz.onex01.ru/"
 
 # Пути
-PROJECT_DIR="/home/one/Rizz/Rizz"
+PROJECT_DIR="/home/one/Rizz/"
 BACKUP_DIR="$PROJECT_DIR/.backup"
 
 cd $PROJECT_DIR

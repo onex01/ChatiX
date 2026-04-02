@@ -9,8 +9,8 @@ set SERVER_USER=root
 set SERVER_PASS=dfkj04251
 set SERVER_HOST=onex01.ru
 set SERVER_PORT=22
-set SERVER_PATH=/var/www/uploads/Android/APKs/Rizz
-set UPLOAD_URL=https://uploads.onex01.ru/Android/APKs/Rizz
+set SERVER_PATH=/var/www/rizz
+set UPLOAD_URL=https://rizz.onex01.ru/
 set PROJECT_DIR=C:\Rizz\Rizz
 set BACKUP_DIR=%PROJECT_DIR%\.backup
 
