@@ -80,6 +80,6 @@ class AppLogger {
   /// Сохранить исключение Flutter
   static void handleFlutterError(FlutterErrorDetails details) {
     final message = '${details.exception}\n${details.stack ?? ''}';
-    error('Flutter error: ${details.exceptionAsString()}', details.exception, details.stack);
+    error('Flutter error: $message', details.exception, details.stack);
   }
 }

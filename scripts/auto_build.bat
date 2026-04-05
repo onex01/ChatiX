@@ -103,7 +103,8 @@ echo {
 echo   "version": "%NEW_VERSION_NUMBER%",
 echo   "buildNumber": %NEW_BUILD_NUMBER%,
 echo   "downloadUrl": "%UPLOAD_URL%/%APK_NAME%",
-echo   "fileSize": "%FILE_SIZE%"
+echo   "fileSize": %FILE_SIZE%
+echo   "changelog": "• Исправлены ошибки\n• Улучшена производительность\n• Добавлена поддержка фоновых обновлений",
 echo }
 ) > build\app\outputs\flutter-apk\version.json
 

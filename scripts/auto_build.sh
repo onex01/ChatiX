@@ -106,7 +106,7 @@ cat > build/app/outputs/flutter-apk/version.json << EOF
   "buildNumber": $NEW_BUILD_NUMBER,
   "downloadUrl": "$UPLOAD_URL/$APK_NAME",
   "releaseDate": "$(date -Iseconds)",
-  "fileSize": "$(du -b build/app/outputs/flutter-apk/$APK_NAME | cut -f1)"
+  "fileSize": $(du -b build/app/outputs/flutter-apk/$APK_NAME | cut -f1)
 }
 EOF
 

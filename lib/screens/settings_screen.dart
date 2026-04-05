@@ -10,7 +10,7 @@ import '../services/cache_service.dart';
 import '../services/update_service.dart';
 import '../version.dart';
 import 'edit_profile_screen.dart';
-import '../screens/log_viewer_screen.dart';
+import '../screens/log_viewer_screen.dart' as LogViewer;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -321,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => LogViewerScreen()),
+              MaterialPageRoute(builder: (_) => LogViewer.LogViewerScreen()),
             );
           },
         ),
