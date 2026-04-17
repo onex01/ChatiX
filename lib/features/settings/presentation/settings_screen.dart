@@ -14,6 +14,9 @@ import '../../../shared/services/update_service.dart';
 import '../../../version.dart';
 import '../../profile/presentation/edit_profile_screen.dart';
 import 'log_viewer_screen.dart';
+import 'privacy_policy_screen.dart';
+import '../widgets/icon_picker_dialog.dart';
+import 'changelog_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -185,6 +188,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             settings.setUseProceduralBackground(value);
           },
         ),
+        ListTile(
+          leading: Icon(Icons.phone_android, color: isLight ? Colors.grey.shade700 : Colors.grey.shade400),
+          title: Text('Иконка приложения', style: TextStyle(color: isLight ? Colors.black87 : Colors.white)),
+          subtitle: Text(
+            'Выберите иконку лаунчера',
+            style: TextStyle(color: isLight ? Colors.grey.shade600 : Colors.grey.shade500),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => const IconPickerDialog(),
+            );
+          },
+        ),
       ],
     );
   }
@@ -292,11 +310,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: () => _showAboutDialog(),
         ),
         ListTile(
+          leading: Icon(Icons.history, color: isLight ? Colors.grey.shade700 : Colors.grey.shade400),
+          title: Text('История изменений', style: TextStyle(color: isLight ? Colors.black87 : Colors.white)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangelogScreen()));
+          },
+        ),
+        ListTile(
           leading: Icon(Icons.bug_report, color: isLight ? Colors.grey.shade700 : Colors.grey.shade400),
           title: Text('Логи приложения', style: TextStyle(color: isLight ? Colors.black87 : Colors.white)),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const LogViewerScreen()));
+          },
+        ),
+        ListTile(
+          leading: Icon(Icons.privacy_tip, color: isLight ? Colors.grey.shade700 : Colors.grey.shade400),
+          title: Text('Политика конфиденциальности', style: TextStyle(color: isLight ? Colors.black87 : Colors.white)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
           },
         ),
         AboutSection(isLight: isLight),

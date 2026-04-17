@@ -23,6 +23,7 @@ import '../../features/chat/domain/use_cases/send_message_use_case.dart';
 import '../../features/chat/domain/use_cases/get_chats_use_case.dart';
 import '../../shared/services/message_listener_service.dart';
 import '../../shared/services/chunked_file_service.dart';
+import '../../shared/services/changelog_service.dart';
 
 final sl = GetIt.instance;
 
@@ -63,6 +64,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<UpdateService>(() => UpdateService());
   sl.registerLazySingleton<MessageFileCache>(() => MessageFileCache());
   sl.registerLazySingleton<UserCacheService>(() => UserCacheService());
+  sl.registerLazySingleton<ChangelogService>(() => ChangelogService());
   sl.registerLazySingleton<ChunkedFileService>(() => ChunkedFileService(sl<FirebaseFirestore>()));
 
   // Репозитории фич
