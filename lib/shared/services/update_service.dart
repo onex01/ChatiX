@@ -38,7 +38,7 @@ class UpdateInfo {
   }
 
   String? get urlForCurrentPlatform {
-    final platform = GetIt.I<PlatformInfo>();
+    GetIt.I<PlatformInfo>();
     if (Platform.isAndroid) return androidUrl;
     if (Platform.isWindows) return windowsUrl;
     if (Platform.isLinux) return linuxUrl;

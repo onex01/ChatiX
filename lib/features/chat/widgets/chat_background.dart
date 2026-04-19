@@ -17,45 +17,30 @@ class ChatBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Stack(
-      children: [
-        // Фоновый слой
-        if (wallpaperUrl != null && wallpaperUrl!.isNotEmpty)
-          Image.network(
-            wallpaperUrl!,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-          )
-        else if (enableEffects)
-          const _ProceduralGradientBackground()
-        else
-          Container(color: backgroundColor),
-        // Контент поверх фона
-        child,
-      ],
-=======
+    // Определяем фон
     Widget background;
+
     if (wallpaperUrl != null && wallpaperUrl!.isNotEmpty) {
-      background = Image.network(wallpaperUrl!, fit: BoxFit.cover);
+      background = Image.network(
+        wallpaperUrl!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
     } else if (enableEffects) {
       background = const _ProceduralGradientBackground();
     } else {
       background = Container(color: backgroundColor);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        image: background is Image ? DecorationImage(image: (background as Image).image, fit: BoxFit.cover) : null,
-      ),
-      child: Stack(
-        children: [
-          if (background is! Image) background,
-          child,
-        ],
-      ),
->>>>>>> 5044046eb29ab30be8c4749474da8bfee2583193
+    // Возвращаем Stack с фоном и контентом
+    return Stack(
+      children: [
+        // Фоновый слой
+        background,
+        // Основной контент (сообщения и т.д.)
+        child,
+      ],
     );
   }
 }

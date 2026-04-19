@@ -1,3 +1,4 @@
+import 'package:Rizz/shared/services/audio_player_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
@@ -26,7 +27,7 @@ void main() async {
   final appLinks = AppLinks();
   appLinks.uriLinkStream.listen((uri) {
     if (uri.scheme == 'rizz' && uri.host == 'profile') {
-      final username = uri.pathSegments.first.replaceFirst('@', '');
+      uri.pathSegments.first.replaceFirst('@', '');
       // Навигация к профилю пользователя по username
       // (предварительно найти uid по username)
     }
@@ -58,6 +59,10 @@ void main() async {
   // Запуск слушателя сообщений для фоновых уведомлений
   final messageListener = GetIt.I<MessageListenerService>();
   messageListener.startListening();
+
+  // В вашем initServices()
+GetIt.I.registerSingleton<AudioPlayerService>(AudioPlayerService());
+await GetIt.I<AudioPlayerService>().init();   // ← обязательно!
 
   runApp(const RizzApp());
 }

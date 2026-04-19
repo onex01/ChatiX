@@ -8,8 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/settings/settings_provider.dart';
 import '../../../core/platform/platform_info.dart';
-import '../../../core/logger/app_logger.dart';
-import '../../../shared/services/cache_service.dart';
+import '../../../core/logger/app_logger.dart'; 
 import '../../../shared/services/file_converter_service.dart';
 import '../data/chat_repository.dart';
 import 'message_bubble.dart';
@@ -49,8 +48,7 @@ class _MessageListState extends State<MessageList> with AutomaticKeepAliveClient
   bool get wantKeepAlive => true;
 
   final _chatRepository = GetIt.I<ChatRepository>();
-  final _cache = GetIt.I<MessageFileCache>();
-  final _logger = GetIt.I<AppLogger>();
+  final _logger = GetIt.I<AppLogger>(); 
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +74,7 @@ class _MessageListState extends State<MessageList> with AutomaticKeepAliveClient
         return ListView.builder(
           controller: widget.scrollController,
           reverse: true,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.only(left: 12, right: 12, top: 120, bottom: 60),
           itemCount: messages.length,
           itemBuilder: (context, index) {
             final msgData = messages[index].data() as Map<String, dynamic>;

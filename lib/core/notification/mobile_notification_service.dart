@@ -36,7 +36,9 @@ class MobileNotificationService implements NotificationService {
       android: androidInit,
       iOS: iosInit,
     );
-    await _localNotifications.initialize(initSettings);
+    
+    // ИСПРАВЛЕНО: Добавлен именованный параметр settings
+    await _localNotifications.initialize(settings: initSettings);
 
     NotificationSettings settings = await _fcm.requestPermission(
       alert: true,
@@ -52,11 +54,12 @@ class MobileNotificationService implements NotificationService {
       _messageController.add(message.data);
       final notification = message.notification;
       if (notification != null) {
+        // ИСПРАВЛЕНО: Использованы именованные параметры id, title, body
         _localNotifications.show(
-          DateTime.now().millisecondsSinceEpoch.remainder(100000),
-          notification.title,
-          notification.body,
-          NotificationDetails(
+          id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+          title: notification.title,
+          body: notification.body,
+          notificationDetails: NotificationDetails(
             android: AndroidNotificationDetails(
               'rizz_channel',
               'Rizz Notifications',
@@ -96,11 +99,12 @@ class MobileNotificationService implements NotificationService {
     required String body,
     String? payload,
   }) async {
+    // ИСПРАВЛЕНО: Использованы именованные параметры
     await _localNotifications.show(
-      0,
-      title,
-      body,
-      NotificationDetails(
+      id: 0,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'rizz_channel',
           'Rizz Notifications',
@@ -141,8 +145,7 @@ class MobileNotificationService implements NotificationService {
       default:
         body = content.length > 100 ? '${content.substring(0, 100)}…' : content;
     }
-
-    // Действия для Android
+ 
     final List<AndroidNotificationAction> actions = [
       AndroidNotificationAction(
         'read_action',
@@ -159,11 +162,12 @@ class MobileNotificationService implements NotificationService {
       ),
     ];
 
+    // ИСПРАВЛЕНО: Использованы именованные параметры
     await _localNotifications.show(
-      chatId.hashCode,
-      senderName,
-      body,
-      NotificationDetails(
+      id: chatId.hashCode,
+      title: senderName,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'rizz_channel',
           'Rizz Notifications',

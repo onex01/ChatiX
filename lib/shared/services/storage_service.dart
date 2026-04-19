@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
-import '../../core/platform/platform_info.dart';
-import '../../core/logger/app_logger.dart';
+import '../../core/logger/app_logger.dart'; 
 
 abstract class StorageService {
   Future<String> uploadAvatar(String userId, File file);
@@ -10,10 +9,9 @@ abstract class StorageService {
 
 class StorageServiceImpl implements StorageService {
   final FirebaseStorage _storage;
-  final PlatformInfo _platformInfo;
   final AppLogger _logger;
 
-  StorageServiceImpl(this._storage, this._platformInfo, this._logger);
+  StorageServiceImpl(this._storage, this._logger, AppLogger appLogger);
 
   @override
   Future<String> uploadAvatar(String userId, File file) async {

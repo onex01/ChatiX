@@ -26,6 +26,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _bioController = TextEditingController();
   final _phoneController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _songTitleController = TextEditingController();
+  final _songArtistController = TextEditingController();
 
   String? _avatarHex;
   bool _saving = false;
@@ -52,17 +54,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _usernameError = available ? null : 'Имя уже занято');
   }
 
-  Future<void> _loadProfile() async {
+    Future<void> _loadProfile() async {
     try {
       final doc = await _firestoreService.getUser(_user.uid);
       if (doc.exists && mounted) {
         final data = doc.data() as Map<String, dynamic>;
+        final pinnedSong = data['pinnedSong'] as Map<String, dynamic>? ?? {};
+
         setState(() {
           _nicknameController.text = data['nickname'] ?? '';
           _usernameController.text = data['username'] ?? '';
           _bioController.text = data['bio'] ?? '';
           _phoneController.text = data['phoneNumber'] ?? '';
           _avatarHex = data['avatarHex'];
+
+          _songTitleController.text = pinnedSong['title'] ?? '';
+          _songArtistController.text = pinnedSong['artist'] ?? '';
+
           _isLoading = false;
         });
       } else {
@@ -74,7 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<void> _saveProfile() async {
+    Future<void> _saveProfile() async {
     final nickname = _nicknameController.text.trim();
     if (nickname.isEmpty) {
       Fluttertoast.showToast(msg: "Никнейм не может быть пустым");
@@ -92,10 +100,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'nickname': nickname,
         'bio': _bioController.text.trim(),
         'username': _usernameController.text.trim(),
+        'pinnedSong': {
+          'title': _songTitleController.text.trim(),
+          'artist': _songArtistController.text.trim(),
+          // duration и audioUrl можно добавить позже через отдельный сервис
+        },
       };
       if (_phoneController.text.isNotEmpty) {
         updates['phoneNumber'] = _phoneController.text.trim();
       }
+
       await _firestoreService.updateUser(_user.uid, updates);
       Fluttertoast.showToast(msg: "Профиль обновлён");
       if (mounted) Navigator.pop(context);
@@ -238,6 +252,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                       prefixIcon: Icon(Icons.description_outlined),
                       alignLabelWithHint: true,
+                    ),
+                  ),
+                                    const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  const Text('Закреплённая песня (статус)', 
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _songTitleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Название трека',
+                      hintText: 'Blinding Lights',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                      prefixIcon: Icon(Icons.music_note),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _songArtistController,
+                    decoration: const InputDecoration(
+                      labelText: 'Исполнитель',
+                      hintText: 'The Weeknd',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                   ),
                   const SizedBox(height: 40),

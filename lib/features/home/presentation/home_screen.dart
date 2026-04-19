@@ -1,7 +1,9 @@
 import 'dart:ui';
+import 'package:Rizz/features/settings/presentation/changelog_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/settings/settings_provider.dart';
@@ -28,8 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _chatsScrollController = ScrollController();
 
-  final bool _isBarVisible = true;
-  bool get _isTablet => MediaQuery.of(context).size.width > 600;
+  bool _isBarVisible = true;
+  bool _isTablet = false;
 
   @override
   void initState() {
@@ -38,26 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.unfocus();
     });
-    // _chatsScrollController.addListener(_onScroll);
   }
-
-  // void _onScroll() {
-  //   if (!_isTablet) {
-  //     final direction = _chatsScrollController.position.userScrollDirection;
-  //     if (direction == ScrollDirection.reverse && _isBarVisible) {
-  //       setState(() => _isBarVisible = false);
-  //     } else if (direction == ScrollDirection.forward && !_isBarVisible) {
-  //       setState(() => _isBarVisible = true);
-  //     }
-  //   }
-  // }
 
   @override
   void dispose() {
     _pageController.dispose();
     _searchController.dispose();
-    _searchFocusNode.dispose();
-    // _chatsScrollController.removeListener(_onScroll);
+    _searchFocusNode.dispose(); 
     _chatsScrollController.dispose();
     super.dispose();
   }
@@ -83,10 +72,25 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchFocusNode.unfocus();
   }
 
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (_isTablet) return false;
+
+    if (notification is UserScrollNotification) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _isBarVisible) {
+        setState(() => _isBarVisible = false);
+      } else if (direction == ScrollDirection.forward && !_isBarVisible) {
+        setState(() => _isBarVisible = true);
+      }
+    }
+    return false; // false = позволяем уведомлению продолжать всплывать (стандартно)
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final isLight = Theme.of(context).brightness == Brightness.light;
+    _isTablet = MediaQuery.of(context).size.width > 600; // обновляем каждый build
 
     if (_isTablet) {
       return _buildTabletLayout(settingsProvider, isLight);
@@ -95,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ==================== МОБИЛЬНАЯ ВЕРСИЯ ====================
+  // ==================== МОБИЛЬНАЯ ВЕРСИЯ (обновлённая) ====================
   Widget _buildMobileLayout(SettingsProvider settings, bool isLight) {
     return Scaffold(
       body: Container(
@@ -121,36 +125,37 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             Positioned(
-              bottom: 0,
+              bottom: 20,
               left: 0,
               right: 0,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: _isBarVisible ? 70 : 0,
+                duration: const Duration(milliseconds: 280), // плавнее, как в iOS
+                curve: Curves.easeOutCubic,
+                height: _isBarVisible ? 80 : 0, // ← увеличена высота
                 child: Center(
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(28),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                            horizontal: 24, vertical: 10), // ← шире и больше отступ
                         decoration: BoxDecoration(
                           color: isLight
-                              ? Colors.white.withValues(alpha: 0.75)
-                              : Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(25),
+                              ? Colors.white.withValues(alpha: 0.78)
+                              : Colors.black.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(28),
                           border: Border.all(
                             color: isLight
-                                ? Colors.black.withValues(alpha: 0.08)
-                                : Colors.white.withValues(alpha: 0.12),
-                            width: 0.8,
+                                ? Colors.black.withValues(alpha: 0.09)
+                                : Colors.white.withValues(alpha: 0.13),
+                            width: 0.9,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
@@ -164,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 index: 0,
                                 isLight: isLight,
                                 accentColor: settings.accentColor),
-                            const SizedBox(width: 24),
+                            const SizedBox(width: 28),
                             _buildNavItem(
                                 icon: Icons.contacts_outlined,
                                 selectedIcon: Icons.contacts,
@@ -172,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 index: 1,
                                 isLight: isLight,
                                 accentColor: settings.accentColor),
-                            const SizedBox(width: 24),
+                            const SizedBox(width: 28),
                             _buildNavItem(
                                 icon: Icons.person_outline,
                                 selectedIcon: Icons.person,
@@ -180,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 index: 2,
                                 isLight: isLight,
                                 accentColor: settings.accentColor),
-                            const SizedBox(width: 24),
+                            const SizedBox(width: 28),
                             _buildNavItem(
                                 icon: Icons.settings_outlined,
                                 selectedIcon: Icons.settings,
@@ -199,6 +204,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      // 5. Плавающая кнопка справа сверху над док-баром
+      //floatingActionButton: FloatingActionButton(
+        //heroTag: 'GroupChatAdd',
+        //onPressed: () {
+          //ScaffoldMessenger.of(context).showSnackBar(
+            //const SnackBar(
+              //content: Text('Создание групп и каналов — скоро'),
+              //behavior: SnackBarBehavior.floating,
+            //),
+          //);
+          // TODO: Navigator.push → NewGroupScreen() / NewChannelScreen()
+        //},
+        //backgroundColor: settings.accentColor,
+        //elevation: 20,
+        //child: const Icon(Icons.add_rounded, size: 30),
+      //),
+      //floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -358,22 +380,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Контент вкладки Чаты с поиском и списком (с прокруткой)
   Widget _buildChatsContentWithScroll(bool isLight) {
-    return Column(
-      children: [
-        _buildChatsHeader(isLight),
-        Expanded(
-          child: _searchQuery.isEmpty
-              ? ChatList(
-                  currentUserId: _currentUser.uid,
-                  searchQuery: '',
-                  scrollController: null, // вместо _chatsScrollController
-                )
-              : _buildUserSearchResults(),
-        ),
-      ],
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScrollNotification,
+      child: Column(
+        children: [
+          _buildChatsHeader(isLight),
+          Expanded(
+            child: _searchQuery.isEmpty
+                ? ChatList(
+                    currentUserId: _currentUser.uid,
+                    searchQuery: '',
+                    scrollController: _chatsScrollController,
+                  )
+                : _buildUserSearchResults(),
+          ),
+        ],
+      ),
     );
   }
 
+  // ==================== КОНТЕНТ ЧАТОВ (планшет) ====================
   Widget _buildChatsContent(bool isLight, Color accentColor) {
     return Column(
       children: [
@@ -383,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ? ChatList(
                   currentUserId: _currentUser.uid,
                   searchQuery: '',
-                  scrollController: null, // планшеты без скролл-контроллера или другой подход
+                  scrollController: null,
                 )
               : _buildUserSearchResults(),
         ),
@@ -403,6 +429,15 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text('Чаты', style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: isLight ? Colors.black : Colors.white)),
           const SizedBox(height: 12),
+          TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ChangelogScreen()));
+                },
+                child: const Text(
+                  'Версия 0.1.95',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
           TextField(
             controller: _searchController,
             focusNode: _searchFocusNode,
@@ -467,8 +502,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return const SizedBox.shrink();
             }
             if (userId == _currentUser.uid) return const SizedBox.shrink();
-            final displayName = username.isNotEmpty ? '@$username' : nickname;
-            return Card(
+            return Card( 
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               elevation: 0,
               color: isLight ? Colors.white : const Color(0xFF1C1C1E),

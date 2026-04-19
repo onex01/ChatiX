@@ -1,6 +1,6 @@
+import 'package:Rizz/core/logger/app_logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/logger/app_logger.dart';
-
+ 
 abstract class FirestoreService {
   Future<DocumentSnapshot> getUser(String uid);
   Future<void> updateUser(String uid, Map<String, dynamic> updates);
@@ -11,9 +11,7 @@ abstract class FirestoreService {
 
 class FirestoreServiceImpl implements FirestoreService {
   final FirebaseFirestore _firestore;
-  final AppLogger _logger;
-
-  FirestoreServiceImpl(this._firestore, this._logger);
+  FirestoreServiceImpl(this._firestore, AppLogger appLogger);
 
   @override
   Future<DocumentSnapshot> getUser(String uid) => _firestore.collection('users').doc(uid).get();
@@ -28,16 +26,14 @@ class FirestoreServiceImpl implements FirestoreService {
       .where('participants', arrayContains: userId)
       .orderBy('lastMessageTime', descending: true)
       .snapshots();
-
-  @override
+ 
   Future<DocumentReference> createChat(Map<String, dynamic> data) =>
       _firestore.collection('chats').add(data);
 
   @override
   Future<void> updateChat(String chatId, Map<String, dynamic> data) =>
       _firestore.collection('chats').doc(chatId).update(data);
-
-  @override
+ 
   Future<void> addMessage(String chatId, Map<String, dynamic> messageData) =>
       _firestore.collection('chats').doc(chatId).collection('messages').add(messageData);
 

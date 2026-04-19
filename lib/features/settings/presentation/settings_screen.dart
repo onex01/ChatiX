@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-
-import '../../../core/logger/app_logger.dart';
-import '../../../core/theme/theme_provider.dart';
+import '../../../core/theme/theme_provider.dart'; 
 import '../../../core/settings/settings_provider.dart';
 import '../../../shared/services/firestore_service.dart';
 import '../../../shared/services/cache_service.dart';
@@ -28,8 +26,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _currentUser = FirebaseAuth.instance.currentUser!;
   final _firestoreService = GetIt.I<FirestoreService>();
-  final _cache = GetIt.I<MessageFileCache>();
-  final _logger = GetIt.I<AppLogger>();
+  final _cache = GetIt.I<MessageFileCache>(); 
   final _updateService = GetIt.I<UpdateService>();
 
   String _appVersion = AppVersion.version;
@@ -480,86 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
-  void _showWallpaperPicker(SettingsProvider settings) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Wrap(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.wallpaper),
-            title: const Text('Выбрать из галереи'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: реализовать выбор обоев
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Выбор обоев из галереи в разработке')),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.palette),
-            title: const Text('Цвет фона'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: выбор цвета обоев
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Выбор цвета в разработке')),
-              );
-            },
-          ),
-          if (settings.wallpaperUrl != null)
-            ListTile(
-              leading: const Icon(Icons.delete),
-              title: const Text('Удалить обои'),
-              onTap: () {
-                settings.setWallpaper(null);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Обои удалены')),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _showChatBackgroundColorPicker(SettingsProvider settings, bool isLight) {
-    final colors = [
-      Colors.white,
-      Colors.black,
-      Colors.grey.shade200,
-      Colors.blue.shade50,
-      Colors.green.shade50,
-      Colors.red.shade50,
-    ];
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Wrap(
-        children: colors.map((color) {
-          return ListTile(
-            leading: CircleAvatar(backgroundColor: color),
-            title: Text(_getColorName(color)),
-            trailing: settings.chatBackgroundColor == color
-                ? const Icon(Icons.check, color: Colors.blue)
-                : null,
-            onTap: () {
-              settings.setChatBackgroundColor(color);
-              Navigator.pop(context);
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
-
+ 
   void _showCacheOptions() {
     final cache = MessageFileCache();
     showDialog(

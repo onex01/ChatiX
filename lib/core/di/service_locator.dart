@@ -32,6 +32,8 @@ Future<void> setupServiceLocator() async {
   final prefs = await SharedPreferences.getInstance();
   sl.registerSingleton<SharedPreferences>(prefs);
   sl.registerSingleton<FirebaseAuth>(FirebaseAuth.instance);
+  
+  // ВАЖНО: FirebaseFirestore.instance используется БЕЗ скобок ()
   sl.registerSingleton<FirebaseFirestore>(FirebaseFirestore.instance);
   sl.registerSingleton<FirebaseStorage>(FirebaseStorage.instance);
 
@@ -57,20 +59,17 @@ Future<void> setupServiceLocator() async {
       ));
   sl.registerLazySingleton<StorageService>(() => StorageServiceImpl(
         sl<FirebaseStorage>(),
-        sl<PlatformInfo>(),
+        sl<PlatformInfo>() as AppLogger,
         sl<AppLogger>(),
       ));
   sl.registerLazySingleton<PresenceService>(() => PresenceService());
   sl.registerLazySingleton<UpdateService>(() => UpdateService());
   sl.registerLazySingleton<MessageFileCache>(() => MessageFileCache());
   sl.registerLazySingleton<UserCacheService>(() => UserCacheService());
-<<<<<<< HEAD
-  sl.registerLazySingleton<ChangelogService>(() => ChangelogService());
-  sl.registerLazySingleton<ChunkedFileService>(() => ChunkedFileService(sl<FirebaseFirestore>()));
-=======
-  sl.registerLazySingleton<ChunkedFileService>(() => ChunkedFileService());
   
->>>>>>> 5044046eb29ab30be8c4749474da8bfee2583193
+  // ИСПРАВЛЕНО: Убираем передачу sl<FirebaseFirestore>(), так как ChunkedFileService ожидает 0 аргументов
+   sl.registerLazySingleton<ChangelogService>(() => ChangelogService());
+   sl.registerLazySingleton<ChunkedFileService>(() => ChunkedFileService());
 
   // Репозитории фич
   sl.registerLazySingleton<ChatRepository>(() => ChatRepositoryImpl(
@@ -82,7 +81,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<SendMessageUseCase>(() => SendMessageUseCase(sl<ChatRepository>()));
   sl.registerLazySingleton<GetChatsUseCase>(() => GetChatsUseCase(sl<ChatRepository>()));
 
-  // Уведомлеия
+  // Слушатель сообщений
   sl.registerLazySingleton<MessageListenerService>(() => MessageListenerService(
       sl<FirebaseFirestore>(),
       sl<FirebaseAuth>(),

@@ -1,3 +1,5 @@
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -25,14 +27,19 @@ class ChatList extends StatefulWidget {
   State<ChatList> createState() => _ChatListState();
 }
 
-class _ChatListState extends State<ChatList> {
+class _ChatListState extends State<ChatList> with AutomaticKeepAliveClientMixin<ChatList> {
   final _firestoreService = GetIt.I<FirestoreService>();
   final _userCache = GetIt.I<UserCacheService>();
   final _logger = GetIt.I<AppLogger>();
 
+
   final Map<String, String> _userNicknames = {};
   final Map<String, String> _userUsernames = {};
   final Map<String, String> _userPhotoUrls = {};
+
+  // НОВОЕ: кэш времени последнего сообщения и непрочитанных
+  final Map<String, DateTime?> _lastMessageTimes = {};
+  final Map<String, int> _unreadCounts = {};
 
   @override
   void initState() {
@@ -62,9 +69,10 @@ class _ChatListState extends State<ChatList> {
     final snapshot = await _firestoreService.getChats(widget.currentUserId).first;
     await _loadUserInfoIfNeeded(snapshot.docs);
   }
-
+  // ==================== ИСПРАВЛЕНО: заполняем время последнего сообщения ====================
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return StreamBuilder<QuerySnapshot>(
       stream: _firestoreService.getChats(widget.currentUserId),
       builder: (context, snapshot) {
@@ -99,6 +107,12 @@ class _ChatListState extends State<ChatList> {
           return bTime.compareTo(aTime);
         });
 
+        for (var doc in sortedChats) {
+          final data = doc.data() as Map<String, dynamic>;
+          final timestamp = data['lastMessageTime'] as Timestamp?;
+          _lastMessageTimes[doc.id] = timestamp?.toDate();
+        }
+
         _loadUserInfoIfNeeded(sortedChats);
 
         final filteredChats = sortedChats.where((doc) {
@@ -114,6 +128,8 @@ class _ChatListState extends State<ChatList> {
         }).toList();
 
         return ListView.builder(
+          controller: widget.scrollController,
+          padding: EdgeInsets.zero,
           itemCount: filteredChats.length,
           itemBuilder: (context, index) {
             final doc = filteredChats[index];
@@ -124,13 +140,14 @@ class _ChatListState extends State<ChatList> {
               orElse: () => widget.currentUserId,
             );
             final isSelfChat = data['isSelfChat'] == true;
-            final displayName = isSelfChat ? 'Заметки' :
-              (_userUsernames[otherUserId] != null && _userUsernames[otherUserId]!.isNotEmpty 
-                ? '@${_userUsernames[otherUserId]}' 
-                : _userNicknames[otherUserId] ?? otherUserId);
-            final photoUrl = _userPhotoUrls[otherUserId];
-            final isPinned = data['pinned'] ?? false;
+
+            final displayName = isSelfChat 
+                ? 'Заметки'
+                : (_userNicknames[otherUserId] ?? otherUserId);
+
             final lastMessage = data['lastMessage'] ?? 'Нет сообщений';
+            final unread = _unreadCounts[doc.id] ?? 0;
+            final isPinned = data['pinned'] ?? false;
 
             return CupertinoContextMenu.builder(
               actions: _buildContextMenuActions(doc, otherUserId, isSelfChat, isPinned),
@@ -148,22 +165,67 @@ class _ChatListState extends State<ChatList> {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.transparent,
                       child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        leading: CircleAvatar(
-                          radius: 28,
-                          backgroundImage: photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                          child: photoUrl == null || photoUrl.isEmpty
-                              ? (isSelfChat ? const Icon(Icons.note_alt, size: 28) : const Icon(Icons.person, size: 28))
-                              : null,
-                        ),
-                        title: Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17)),
-                        subtitle: Text(lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        leading: isSelfChat
+                            ? const CircleAvatar(
+                                radius: 28,
+                                backgroundColor: Color(0xFFE0E0E0),
+                                child: Icon(Icons.note_alt, size: 28, color: Colors.grey),
+                              )
+                            : CircleAvatar(
+                                radius: 28,
+                                backgroundImage: _userPhotoUrls[otherUserId]?.isNotEmpty == true
+                                    ? CachedNetworkImageProvider(_userPhotoUrls[otherUserId]!)
+                                    : null,
+                                backgroundColor: _userPhotoUrls[otherUserId]?.isNotEmpty == true
+                                    ? null
+                                    : Colors.grey.shade300,
+                                child: _userPhotoUrls[otherUserId]?.isNotEmpty != true
+                                    ? const Icon(Icons.person, size: 28, color: Colors.grey)
+                                    : null,
+                              ),
+                        title: Text(displayName, 
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17)),
+                        subtitle: Text(lastMessage, 
+                            maxLines: 1, 
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
-                        trailing: isPinned ? const Icon(Icons.push_pin, size: 20, color: Colors.blueAccent) : null,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _formatMessageTime(data['lastMessageTime'] as Timestamp?),
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                            ),
+                            if (unread > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    unread > 99 ? '99+' : unread.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (isPinned)
+                              const Icon(Icons.push_pin, size: 18, color: Colors.blueAccent),
+                          ],
+                        ),
                         onTap: () {
                           Navigator.push(
                             context,
-                            CupertinoPageRoute(builder: (_) => ChatScreen(chatId: doc.id, otherUserId: otherUserId)),
+                            CupertinoPageRoute(
+                              builder: (_) => ChatScreen(chatId: doc.id, otherUserId: otherUserId),
+                            ),
                           );
                         },
                       ),
@@ -177,6 +239,78 @@ class _ChatListState extends State<ChatList> {
       },
     );
   }
+  String _formatMessageTime(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+
+    final dateTime = timestamp.toDate();
+    final now = DateTime.now();
+    final diff = now.difference(dateTime).inDays;
+
+    if (diff == 0) {
+      // Сегодня — часы:минуты
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else if (diff == 1) {
+      return 'Вчера';
+    } else {
+      // Старше — день.месяц
+      return '${dateTime.day}.${dateTime.month.toString().padLeft(2, '0')}';
+    }
+  }
+
+  // ==================== ИСПРАВЛЕНО: подгрузка пользователей только при необходимости ====================
+  // ==================== ИСПРАВЛЕНО: загрузка через _firestoreService.getUser (как в chat_screen.dart) ====================
+Future<void> _loadUserInfoIfNeeded(List<QueryDocumentSnapshot> chats) async {
+  final Set<String> uidsToLoad = {};
+  for (var doc in chats) {
+    final data = doc.data() as Map<String, dynamic>;
+    final participants = List<String>.from(data['participants'] ?? []);
+    for (var uid in participants) {
+      if (uid != widget.currentUserId && !_userNicknames.containsKey(uid)) {
+        uidsToLoad.add(uid);
+      }
+    }
+  }
+  if (uidsToLoad.isEmpty) return;
+
+  // Сначала проверяем локальный кэш
+  for (var uid in uidsToLoad) {
+    final cachedNick = _userCache.getNickname(uid);
+    final cachedUsername = _userCache.getUsername(uid);
+    final cachedPhoto = _userCache.getPhotoUrl(uid);
+    if (cachedNick != null) _userNicknames[uid] = cachedNick;
+    if (cachedUsername != null) _userUsernames[uid] = cachedUsername;
+    if (cachedPhoto != null) _userPhotoUrls[uid] = cachedPhoto;
+  }
+
+  final uidsToFetch = uidsToLoad.where((uid) => !_userNicknames.containsKey(uid)).toList();
+  if (uidsToFetch.isEmpty) return;
+
+  try {
+    // Параллельная загрузка (как в chat_screen.dart)
+    final futures = uidsToFetch.map((uid) => _firestoreService.getUser(uid)).toList();
+    final snapshots = await Future.wait(futures);
+
+    for (var i = 0; i < snapshots.length; i++) {
+      final doc = snapshots[i];
+      if (!doc.exists) continue;
+
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final nickname = data['nickname'] ?? uidsToFetch[i];
+      final username = data['username'] ?? '';
+      final photoUrl = data['photoUrl'] ?? '';
+
+      _userNicknames[uidsToFetch[i]] = nickname;
+      _userUsernames[uidsToFetch[i]] = username;
+      _userPhotoUrls[uidsToFetch[i]] = photoUrl;
+
+      await _userCache.cacheUser(uidsToFetch[i], nickname, photoUrl, username);
+    }
+
+    if (mounted) setState(() {});
+  } catch (e, stack) {
+    _logger.error('Error loading user info for chat list', error: e, stack: stack);
+  }
+}
 
   List<Widget> _buildContextMenuActions(QueryDocumentSnapshot doc, String otherUserId, bool isSelfChat, bool isPinned) {
     final data = doc.data() as Map<String, dynamic>;
@@ -289,54 +423,7 @@ class _ChatListState extends State<ChatList> {
     await doc.reference.update({'isArchived': true});
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Чат архивирован')));
   }
-
-  Future<void> _loadUserInfoIfNeeded(List<QueryDocumentSnapshot> chats) async {
-    final Set<String> uidsToLoad = {};
-    for (var doc in chats) {
-      final data = doc.data() as Map<String, dynamic>;
-      final participants = List<String>.from(data['participants'] ?? []);
-      for (var uid in participants) {
-        if (uid != widget.currentUserId && !_userNicknames.containsKey(uid)) {
-          uidsToLoad.add(uid);
-        }
-      }
-    }
-    if (uidsToLoad.isEmpty) return;
-
-    // Сначала пробуем кэш
-    for (var uid in uidsToLoad) {
-      final cachedNick = _userCache.getNickname(uid);
-      final cachedUsername = _userCache.getUsername(uid);
-      final cachedPhoto = _userCache.getPhotoUrl(uid);
-      if (cachedNick != null) _userNicknames[uid] = cachedNick;
-      if (cachedUsername != null) _userUsernames[uid] = cachedUsername;
-      if (cachedPhoto != null) _userPhotoUrls[uid] = cachedPhoto;
-    }
-
-    // Загружаем недостающие из Firestore
-    final uidsToFetch = uidsToLoad.where((uid) => !_userNicknames.containsKey(uid)).toList();
-    if (uidsToFetch.isEmpty) {
-      if (mounted) setState(() {});
-      return;
-    }
-
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: uidsToFetch)
-          .get();
-      for (var doc in snapshot.docs) {
-        final nickname = doc['nickname'] ?? doc.id;
-        final username = doc['username'] ?? '';
-        final photoUrl = doc['photoUrl'] ?? '';
-        _userNicknames[doc.id] = nickname;
-        _userUsernames[doc.id] = username;
-        _userPhotoUrls[doc.id] = photoUrl;
-        await _userCache.cacheUser(doc.id, nickname, photoUrl, username);
-      }
-      if (mounted) setState(() {});
-    } catch (e) {
-      _logger.error('Error loading user info for chat list', error: e);
-    }
-  }
+  
+  @override
+  bool get wantKeepAlive => true; 
 }

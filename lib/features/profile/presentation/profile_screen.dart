@@ -27,6 +27,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _phoneNumber;
   String? _bio;
   bool _isLoading = true;
+  String? _pinnedSongTitle;
+  String? _pinnedSongArtist;
 
   @override
   void initState() {
@@ -39,11 +41,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final doc = await _firestoreService.getUser(_user.uid);
       if (doc.exists && mounted) {
         final data = doc.data() as Map<String, dynamic>;
+        final pinnedSong = data['pinnedSong'] as Map<String, dynamic>? ?? {};
+
         setState(() {
           _nickname = data['nickname'] ?? _user.email?.split('@')[0];
           _avatarHex = data['avatarHex'];
           _phoneNumber = data['phoneNumber'];
           _bio = data['bio'] ?? 'Привет! Я использую Rizz';
+          _pinnedSongTitle = pinnedSong['title'];
+          _pinnedSongArtist = pinnedSong['artist'];
           _isLoading = false;
         });
       } else {
@@ -178,6 +184,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _showQrCode,
                         ),
+                                          if (_pinnedSongTitle != null && _pinnedSongTitle!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Card(
+                        elevation: 0,
+                        color: isLight ? Colors.grey.shade100 : Colors.grey.shade900,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          leading: const Icon(Icons.music_note, color: Colors.deepPurple),
+                          title: Text(_pinnedSongTitle!),
+                          subtitle: Text(_pinnedSongArtist ?? ''),
+                          trailing: const Icon(Icons.play_circle_fill, color: Colors.deepPurple),
+                          onTap: () {
+                            // TODO: Запуск глобального плеера (будет в AudioPlayerService)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('▶️ Играет: $_pinnedSongTitle')),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                       ],
                     ),
                   ),

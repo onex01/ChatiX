@@ -1,13 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:get_it/get_it.dart';
-import '../../core/logger/app_logger.dart';
-
+ 
 class PresenceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final _logger = GetIt.I<AppLogger>();
-
+ 
   Future<void> initPresence() async {
     final user = _auth.currentUser;
     if (user == null) return;
